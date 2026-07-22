@@ -38,8 +38,12 @@ const body = `
       <div id="hud-score" class="hud-score">0</div>
       <div class="hud-score-label">glory <span id="hud-mult" class="hud-mult">×1.00</span></div>
     </div>
-    <div id="hud-gems" class="hud-gems"><span class="gem-ico">◆</span> 0</div>
+    <div class="hud-gems-wrap">
+      <div id="hud-gems" class="hud-gems"><span class="gem-ico">◆</span> 0</div>
+      <div id="hud-yield" class="hud-yield"></div>
+    </div>
   </div>
+  <div id="hud-debuffs" class="hud-debuffs"></div>
   <div class="hud-speed-track"><div id="hud-speed" class="hud-speed-fill"></div></div>
   <div class="hud-hint">← → lane &nbsp;·&nbsp; ↑ / space leap &nbsp;·&nbsp; ↓ roll</div>
 </div>
@@ -80,6 +84,15 @@ const body = `
       <button id="altar-confirm" class="btn btn-primary">Seal the pact</button>
       <button id="altar-back" class="btn">Back</button>
     </div>
+  </div>
+</div>
+
+<div id="screen-choice" class="screen">
+  <div class="panel center">
+    <div class="choice-eyebrow">ONE MINUTE SURVIVED</div>
+    <h2 class="subtitle">The Corridor Demands Tribute</h2>
+    <p class="choice-sub">Take a wound to keep descending. The crueler the wound, the richer every rune becomes.</p>
+    <div id="choice-list" class="choice-list"></div>
   </div>
 </div>
 

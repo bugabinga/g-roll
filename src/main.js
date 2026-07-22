@@ -5,7 +5,7 @@
 // ============================================================================
 
 import * as THREE from '../vendor/three.module.js';
-import { CONFIG, CURSES, curseById } from './config.js';
+import { CONFIG, CURSES, curseById, DEBUFFS } from './config.js';
 import { Save } from './save.js';
 import { Input } from './input.js';
 import { Audio } from './audio.js';
@@ -78,7 +78,7 @@ class Game {
       startSpeed: CONFIG.startSpeed, maxSpeed: CONFIG.maxSpeed, accel: CONFIG.accel,
       baseObstacleGap: CONFIG.baseObstacleGap, minObstacleGap: CONFIG.minObstacleGap,
       gemChance: CONFIG.gemChance,
-      fogDensity: 0.028, viewCut: false, hazardFury: false, vertigo: false,
+      fogDensity: 0.016, viewCut: false, hazardFury: false, vertigo: false,
     };
     let mult = 1;
     for (const id of active) { const c = curseById(id); if (c) { c.apply(s); mult *= c.mult; } }
@@ -95,6 +95,9 @@ class Game {
       settings: s, mult, elapsed: 0, speed: s.startSpeed,
       distance: 0, score: 0, gems: 0, curses: active.slice(),
       dieTimer: 0,
+      gemYield: 1,            // gems gained per rune — grows with each wound taken
+      nextChoiceAt: 60,       // seconds of play until the next forced wound
+      debuffs: [],            // ids of wounds taken this run
     };
 
     this.player.reset();
@@ -105,6 +108,34 @@ class Game {
 
     this.audio.startDrone();
     this.ui.showHUD();
+    this.state = 'playing';
+  }
+
+  // -- forced wound choice (every minute) -----------------------------------
+  openChoice() {
+    if (this.state !== 'playing') return;
+    this.state = 'choosing';
+    this.input.enabled = false;
+    this.audio.toll();
+    // offer 3 distinct wounds, favouring ones not yet taken so choices feel fresh
+    const taken = new Set(this.run.debuffs);
+    const pool = DEBUFFS.slice().sort(() => Math.random() - 0.5);
+    pool.sort((a, b) => (taken.has(a.id) ? 1 : 0) - (taken.has(b.id) ? 1 : 0));
+    const picks = pool.slice(0, 3);
+    this.ui.showChoice(picks, (d) => this.chooseDebuff(d));
+  }
+
+  chooseDebuff(d) {
+    if (this.state !== 'choosing') return;
+    d.apply(this);
+    this.run.gemYield += d.gemBonus;
+    this.run.debuffs.push(d.id);
+    this.run.nextChoiceAt += 60;
+    this.ui.hideChoice();
+    this.audio.roll();          // a wet, resigned whoosh as the wound takes hold
+    this.world.addShake(0.4);
+    this.input.clear();
+    this.input.enabled = true;
     this.state = 'playing';
   }
 
@@ -152,6 +183,7 @@ class Game {
 
     if (this.state === 'playing') this._updatePlay(dt);
     else if (this.state === 'dying') this._updateDying(dt);
+    else if (this.state === 'choosing') { /* frozen: render the paused scene only */ }
     else this._updateIdle(dt);
 
     this.renderer.render(this.world.scene, this.world.camera);
@@ -181,8 +213,8 @@ class Game {
 
     // collisions
     const hit = this.spawner.collide(this.player,
-      (pos) => {                      // onGem
-        r.gems += 1;
+      (pos) => {                      // onGem — worth more the more wounds you carry
+        r.gems += r.gemYield;
         this.audio.gem();
         this.ui.flashGem();
       },
@@ -197,7 +229,14 @@ class Game {
     const speedPct = (r.speed - r.settings.startSpeed) / (r.settings.maxSpeed - r.settings.startSpeed);
     this.audio.updateHeart(dt, THREE.MathUtils.clamp(speedPct, 0, 1));
 
-    this.ui.updateHUD({ score: r.score, gems: r.gems, mult: r.mult, speedPct: THREE.MathUtils.clamp(speedPct, 0, 1) });
+    this.ui.updateHUD({
+      score: r.score, gems: r.gems, mult: r.mult,
+      speedPct: THREE.MathUtils.clamp(speedPct, 0, 1),
+      gemYield: r.gemYield, debuffs: r.debuffs,
+    });
+
+    // every minute survived, the corridor stops and demands a wound
+    if (r.elapsed >= r.nextChoiceAt) this.openChoice();
   }
 
   _updateDying(dt) {

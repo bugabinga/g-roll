@@ -170,6 +170,32 @@ body {
 .go-line { font-size: 17px; margin: 4px 0; color: #b9b3a6; }
 .go-bank { color: var(--gold); font-family: 'Cinzel', serif; margin: 8px 0 18px; font-size: 19px; }
 
+/* ---------- wound choice ---------- */
+.choice-eyebrow { font-family: 'Cinzel', serif; letter-spacing: 0.26em; font-size: 12px; color: var(--gold); margin-bottom: 6px; }
+.choice-sub { font-style: italic; color: #a49e90; font-size: 15px; margin-bottom: 18px; text-align: center; }
+.choice-list { display: flex; flex-direction: column; gap: 11px; }
+.choice-card {
+  padding: 15px 16px; border: 1px solid rgba(120,110,90,0.28); border-radius: 3px;
+  background: rgba(18,14,12,0.7); cursor: pointer; text-align: left;
+  transition: transform 0.12s ease, border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+}
+.choice-card:hover, .choice-card:focus-visible {
+  border-color: var(--blood); background: rgba(60,10,10,0.5);
+  box-shadow: 0 0 30px rgba(179,17,17,0.3), inset 0 0 30px rgba(179,17,17,0.15);
+  transform: translateY(-2px); outline: none;
+}
+.choice-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.choice-name { font-family: 'Cinzel', serif; font-size: 19px; color: #ecdfca; letter-spacing: 0.02em; }
+.choice-skulls { font-size: 15px; letter-spacing: 2px; }
+.choice-skulls[data-tier="1"] { color: #9a8f6a; }
+.choice-skulls[data-tier="2"] { color: #d08a2a; }
+.choice-skulls[data-tier="3"] { color: var(--blood-bright); text-shadow: 0 0 10px rgba(255,42,42,0.6); }
+.choice-desc { font-size: 14.5px; color: #9a9488; line-height: 1.4; margin-bottom: 9px; }
+.choice-reward {
+  display: inline-block; font-family: 'Cinzel', serif; font-size: 14px; color: #f2d98a;
+  padding: 4px 11px; border: 1px solid rgba(201,162,39,0.4); border-radius: 2px; background: rgba(60,44,10,0.35);
+}
+
 /* ---------- HUD ---------- */
 #hud {
   position: fixed; inset: 0; z-index: 15; pointer-events: none;
@@ -187,6 +213,14 @@ body {
 }
 .hud-gems.pop { animation: gemPop 0.3s ease; }
 @keyframes gemPop { 0% { transform: scale(1); } 40% { transform: scale(1.35); color: var(--blood-bright); } 100% { transform: scale(1); } }
+.hud-gems-wrap { text-align: right; }
+.hud-yield { font-family: 'Cinzel', serif; font-size: 13px; color: var(--gold); text-shadow: 0 2px 6px rgba(0,0,0,0.9); margin-top: 1px; min-height: 15px; }
+.hud-debuffs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; max-width: 62%; }
+.hud-debuffs .wound {
+  font-family: 'Cinzel', serif; font-size: 11px; letter-spacing: 0.02em; color: #e7c9c9;
+  padding: 3px 8px; border: 1px solid rgba(179,17,17,0.5); border-radius: 2px;
+  background: rgba(60,10,10,0.45); text-shadow: 0 1px 3px #000;
+}
 .hud-speed-track { position: absolute; left: 22px; right: 22px; bottom: 44px; height: 3px; background: rgba(255,255,255,0.08); border-radius: 2px; }
 .hud-speed-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--gold), var(--blood-bright)); border-radius: 2px; box-shadow: 0 0 12px rgba(255,42,42,0.6); transition: width 0.2s ease; }
 .hud-hint { position: absolute; left: 0; right: 0; bottom: 16px; text-align: center; font-size: 12.5px; color: rgba(160,150,130,0.5); font-style: italic; }
@@ -239,8 +273,12 @@ body {
       <div id="hud-score" class="hud-score">0</div>
       <div class="hud-score-label">glory <span id="hud-mult" class="hud-mult">×1.00</span></div>
     </div>
-    <div id="hud-gems" class="hud-gems"><span class="gem-ico">◆</span> 0</div>
+    <div class="hud-gems-wrap">
+      <div id="hud-gems" class="hud-gems"><span class="gem-ico">◆</span> 0</div>
+      <div id="hud-yield" class="hud-yield"></div>
+    </div>
   </div>
+  <div id="hud-debuffs" class="hud-debuffs"></div>
   <div class="hud-speed-track"><div id="hud-speed" class="hud-speed-fill"></div></div>
   <div class="hud-hint">← → lane &nbsp;·&nbsp; ↑ / space leap &nbsp;·&nbsp; ↓ roll</div>
 </div>
@@ -281,6 +319,15 @@ body {
       <button id="altar-confirm" class="btn btn-primary">Seal the pact</button>
       <button id="altar-back" class="btn">Back</button>
     </div>
+  </div>
+</div>
+
+<div id="screen-choice" class="screen">
+  <div class="panel center">
+    <div class="choice-eyebrow">ONE MINUTE SURVIVED</div>
+    <h2 class="subtitle">The Corridor Demands Tribute</h2>
+    <p class="choice-sub">Take a wound to keep descending. The crueler the wound, the richer every rune becomes.</p>
+    <div id="choice-list" class="choice-list"></div>
   </div>
 </div>
 
@@ -53456,6 +53503,53 @@ function curseById(id) {
   return CURSES.find((c) => c.id === id);
 }
 
+// ----------------------------------------------------------------------------
+//  WOUNDS — in-run debuffs. Every minute survived, the corridor stops and makes
+//  you take one. The crueller the wound (higher tier), the more each rune is
+//  worth for the rest of the run. gemBonus adds to your live gem yield.
+//  apply(game) mutates the live run/world/spawner.
+// ----------------------------------------------------------------------------
+const DEBUFFS = [
+  {
+    id: 'quicken', name: 'Quicken', tier: 2, gemBonus: 1.0,
+    desc: 'The floor drags harder. A sudden surge of speed.',
+    apply: (g) => { g.run.settings.startSpeed += 6; g.run.settings.maxSpeed += 6; },
+  },
+  {
+    id: 'frenzy', name: 'Frenzy', tier: 3, gemBonus: 1.75,
+    desc: 'Blinding pace and ever-quickening dread. Speed and acceleration soar.',
+    apply: (g) => { g.run.settings.startSpeed += 9; g.run.settings.maxSpeed += 9; g.run.settings.accel += 0.12; },
+  },
+  {
+    id: 'onrush', name: 'Onrush', tier: 3, gemBonus: 1.6,
+    desc: 'The dead press closer. Obstacles pack much tighter together.',
+    apply: (g) => {
+      const o = g.spawner.opts;
+      o.baseGap = Math.max(9, (o.baseGap ?? 19) * 0.8);
+      o.minGap = Math.max(7, (o.minGap ?? 11) * 0.84);
+    },
+  },
+  {
+    id: 'gloom', name: 'Gloom', tier: 1, gemBonus: 0.6,
+    desc: 'The mist thickens. Obstacles surface later from the dark.',
+    apply: (g) => { g.world.setFogDensity(Math.min(0.06, g.world.fog.density + 0.012)); },
+  },
+  {
+    id: 'bloodhunt', name: 'Bloodhunt', tier: 2, gemBonus: 1.1,
+    desc: 'The beasts hunger. Charging hazards move faster and reach further.',
+    apply: (g) => { g.spawner.opts.hazardFury = true; },
+  },
+  {
+    id: 'vertigo', name: 'Vertigo', tier: 1, gemBonus: 0.7,
+    desc: 'The world will not hold still. The camera sways with dread.',
+    apply: (g) => { g.world.setVertigo(true); },
+  },
+];
+
+function debuffById(id) {
+  return DEBUFFS.find((d) => d.id === id);
+}
+
 
 /* ===== save.js ===== */
 // ============================================================================
@@ -54909,7 +55003,7 @@ class UI {
 
   // -- screen switching ------------------------------------------------------
   _hideAll() {
-    for (const s of ['menu', 'altar', 'gameover']) $('screen-' + s).classList.remove('show');
+    for (const s of ['menu', 'altar', 'gameover', 'choice']) $('screen-' + s).classList.remove('show');
     $('hud').classList.remove('show');
   }
 
@@ -54996,12 +55090,48 @@ class UI {
     Save.setActiveCurses([...this.selected]);
   }
 
+  // -- wound choice (fires every minute) ------------------------------------
+  showChoice(debuffs, onPick) {
+    const list = $('choice-list');
+    list.innerHTML = '';
+    for (const d of debuffs) {
+      const card = document.createElement('button');
+      card.className = 'choice-card';
+      card.type = 'button';
+      card.innerHTML = `
+        <div class="choice-head">
+          <span class="choice-name">${d.name}</span>
+          <span class="choice-skulls" data-tier="${d.tier}">${'☠'.repeat(d.tier)}</span>
+        </div>
+        <p class="choice-desc">${d.desc}</p>
+        <span class="choice-reward">+${d.gemBonus.toFixed(1)} ${gem} per rune</span>`;
+      card.onclick = () => onPick(d);
+      list.appendChild(card);
+    }
+    $('screen-choice').classList.add('show');
+  }
+
+  hideChoice() { $('screen-choice').classList.remove('show'); }
+
   // -- HUD -------------------------------------------------------------------
-  updateHUD({ score, gems, mult, speedPct }) {
+  updateHUD({ score, gems, mult, speedPct, gemYield, debuffs }) {
     $('hud-score').textContent = Math.floor(score).toLocaleString();
-    $('hud-gems').innerHTML = `${gem} ${gems}`;
+    $('hud-gems').innerHTML = `${gem} ${Math.floor(gems)}`;
     $('hud-mult').textContent = '×' + mult.toFixed(2);
     $('hud-speed').style.width = (speedPct * 100).toFixed(0) + '%';
+
+    $('hud-yield').innerHTML = (gemYield && gemYield > 1) ? `${gem} ×${gemYield.toFixed(1)} / rune` : '';
+
+    // rebuild wound chips only when the set changes (avoid per-frame DOM churn)
+    const n = debuffs ? debuffs.length : 0;
+    if (n !== this._woundCount) {
+      this._woundCount = n;
+      const box = $('hud-debuffs');
+      box.innerHTML = (debuffs || []).map((id) => {
+        const d = debuffById(id);
+        return d ? `<span class="wound">${'☠'} ${d.name}</span>` : '';
+      }).join('');
+    }
   }
 
   flashGem() {
@@ -55014,7 +55144,7 @@ class UI {
     this._hideAll();
     $('go-score').textContent = Math.floor(data.score).toLocaleString();
     $('go-dist').textContent = Math.floor(data.distance).toLocaleString() + ' m';
-    $('go-gems').innerHTML = `${gem} ${data.gemsCollected} collected`;
+    $('go-gems').innerHTML = `${gem} ${Math.floor(data.gemsCollected)} collected`;
     $('go-bank').innerHTML = `Bank now ${gem} ${Save.bank}`;
     $('go-mult').textContent = '×' + data.mult.toFixed(2);
     $('go-record').style.display = data.newBest ? 'block' : 'none';
@@ -55103,7 +55233,7 @@ class Game {
       startSpeed: CONFIG.startSpeed, maxSpeed: CONFIG.maxSpeed, accel: CONFIG.accel,
       baseObstacleGap: CONFIG.baseObstacleGap, minObstacleGap: CONFIG.minObstacleGap,
       gemChance: CONFIG.gemChance,
-      fogDensity: 0.028, viewCut: false, hazardFury: false, vertigo: false,
+      fogDensity: 0.016, viewCut: false, hazardFury: false, vertigo: false,
     };
     let mult = 1;
     for (const id of active) { const c = curseById(id); if (c) { c.apply(s); mult *= c.mult; } }
@@ -55120,6 +55250,9 @@ class Game {
       settings: s, mult, elapsed: 0, speed: s.startSpeed,
       distance: 0, score: 0, gems: 0, curses: active.slice(),
       dieTimer: 0,
+      gemYield: 1,            // gems gained per rune — grows with each wound taken
+      nextChoiceAt: 60,       // seconds of play until the next forced wound
+      debuffs: [],            // ids of wounds taken this run
     };
 
     this.player.reset();
@@ -55130,6 +55263,34 @@ class Game {
 
     this.audio.startDrone();
     this.ui.showHUD();
+    this.state = 'playing';
+  }
+
+  // -- forced wound choice (every minute) -----------------------------------
+  openChoice() {
+    if (this.state !== 'playing') return;
+    this.state = 'choosing';
+    this.input.enabled = false;
+    this.audio.toll();
+    // offer 3 distinct wounds, favouring ones not yet taken so choices feel fresh
+    const taken = new Set(this.run.debuffs);
+    const pool = DEBUFFS.slice().sort(() => Math.random() - 0.5);
+    pool.sort((a, b) => (taken.has(a.id) ? 1 : 0) - (taken.has(b.id) ? 1 : 0));
+    const picks = pool.slice(0, 3);
+    this.ui.showChoice(picks, (d) => this.chooseDebuff(d));
+  }
+
+  chooseDebuff(d) {
+    if (this.state !== 'choosing') return;
+    d.apply(this);
+    this.run.gemYield += d.gemBonus;
+    this.run.debuffs.push(d.id);
+    this.run.nextChoiceAt += 60;
+    this.ui.hideChoice();
+    this.audio.roll();          // a wet, resigned whoosh as the wound takes hold
+    this.world.addShake(0.4);
+    this.input.clear();
+    this.input.enabled = true;
     this.state = 'playing';
   }
 
@@ -55177,6 +55338,7 @@ class Game {
 
     if (this.state === 'playing') this._updatePlay(dt);
     else if (this.state === 'dying') this._updateDying(dt);
+    else if (this.state === 'choosing') { /* frozen: render the paused scene only */ }
     else this._updateIdle(dt);
 
     this.renderer.render(this.world.scene, this.world.camera);
@@ -55206,8 +55368,8 @@ class Game {
 
     // collisions
     const hit = this.spawner.collide(this.player,
-      (pos) => {                      // onGem
-        r.gems += 1;
+      (pos) => {                      // onGem — worth more the more wounds you carry
+        r.gems += r.gemYield;
         this.audio.gem();
         this.ui.flashGem();
       },
@@ -55222,7 +55384,14 @@ class Game {
     const speedPct = (r.speed - r.settings.startSpeed) / (r.settings.maxSpeed - r.settings.startSpeed);
     this.audio.updateHeart(dt, THREE.MathUtils.clamp(speedPct, 0, 1));
 
-    this.ui.updateHUD({ score: r.score, gems: r.gems, mult: r.mult, speedPct: THREE.MathUtils.clamp(speedPct, 0, 1) });
+    this.ui.updateHUD({
+      score: r.score, gems: r.gems, mult: r.mult,
+      speedPct: THREE.MathUtils.clamp(speedPct, 0, 1),
+      gemYield: r.gemYield, debuffs: r.debuffs,
+    });
+
+    // every minute survived, the corridor stops and demands a wound
+    if (r.elapsed >= r.nextChoiceAt) this.openChoice();
   }
 
   _updateDying(dt) {

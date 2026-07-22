@@ -4,7 +4,7 @@
 // ============================================================================
 
 import { Save } from './save.js';
-import { CURSES, curseById } from './config.js';
+import { CURSES, curseById, debuffById } from './config.js';
 
 const $ = (id) => document.getElementById(id);
 const gem = '<span class="gem-ico">◆</span>';
@@ -38,7 +38,7 @@ export class UI {
 
   // -- screen switching ------------------------------------------------------
   _hideAll() {
-    for (const s of ['menu', 'altar', 'gameover']) $('screen-' + s).classList.remove('show');
+    for (const s of ['menu', 'altar', 'gameover', 'choice']) $('screen-' + s).classList.remove('show');
     $('hud').classList.remove('show');
   }
 
@@ -125,12 +125,48 @@ export class UI {
     Save.setActiveCurses([...this.selected]);
   }
 
+  // -- wound choice (fires every minute) ------------------------------------
+  showChoice(debuffs, onPick) {
+    const list = $('choice-list');
+    list.innerHTML = '';
+    for (const d of debuffs) {
+      const card = document.createElement('button');
+      card.className = 'choice-card';
+      card.type = 'button';
+      card.innerHTML = `
+        <div class="choice-head">
+          <span class="choice-name">${d.name}</span>
+          <span class="choice-skulls" data-tier="${d.tier}">${'☠'.repeat(d.tier)}</span>
+        </div>
+        <p class="choice-desc">${d.desc}</p>
+        <span class="choice-reward">+${d.gemBonus.toFixed(1)} ${gem} per rune</span>`;
+      card.onclick = () => onPick(d);
+      list.appendChild(card);
+    }
+    $('screen-choice').classList.add('show');
+  }
+
+  hideChoice() { $('screen-choice').classList.remove('show'); }
+
   // -- HUD -------------------------------------------------------------------
-  updateHUD({ score, gems, mult, speedPct }) {
+  updateHUD({ score, gems, mult, speedPct, gemYield, debuffs }) {
     $('hud-score').textContent = Math.floor(score).toLocaleString();
-    $('hud-gems').innerHTML = `${gem} ${gems}`;
+    $('hud-gems').innerHTML = `${gem} ${Math.floor(gems)}`;
     $('hud-mult').textContent = '×' + mult.toFixed(2);
     $('hud-speed').style.width = (speedPct * 100).toFixed(0) + '%';
+
+    $('hud-yield').innerHTML = (gemYield && gemYield > 1) ? `${gem} ×${gemYield.toFixed(1)} / rune` : '';
+
+    // rebuild wound chips only when the set changes (avoid per-frame DOM churn)
+    const n = debuffs ? debuffs.length : 0;
+    if (n !== this._woundCount) {
+      this._woundCount = n;
+      const box = $('hud-debuffs');
+      box.innerHTML = (debuffs || []).map((id) => {
+        const d = debuffById(id);
+        return d ? `<span class="wound">${'☠'} ${d.name}</span>` : '';
+      }).join('');
+    }
   }
 
   flashGem() {
@@ -143,7 +179,7 @@ export class UI {
     this._hideAll();
     $('go-score').textContent = Math.floor(data.score).toLocaleString();
     $('go-dist').textContent = Math.floor(data.distance).toLocaleString() + ' m';
-    $('go-gems').innerHTML = `${gem} ${data.gemsCollected} collected`;
+    $('go-gems').innerHTML = `${gem} ${Math.floor(data.gemsCollected)} collected`;
     $('go-bank').innerHTML = `Bank now ${gem} ${Save.bank}`;
     $('go-mult').textContent = '×' + data.mult.toFixed(2);
     $('go-record').style.display = data.newBest ? 'block' : 'none';

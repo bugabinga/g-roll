@@ -95,3 +95,50 @@ export const CURSES = [
 export function curseById(id) {
   return CURSES.find((c) => c.id === id);
 }
+
+// ----------------------------------------------------------------------------
+//  WOUNDS — in-run debuffs. Every minute survived, the corridor stops and makes
+//  you take one. The crueller the wound (higher tier), the more each rune is
+//  worth for the rest of the run. gemBonus adds to your live gem yield.
+//  apply(game) mutates the live run/world/spawner.
+// ----------------------------------------------------------------------------
+export const DEBUFFS = [
+  {
+    id: 'quicken', name: 'Quicken', tier: 2, gemBonus: 1.0,
+    desc: 'The floor drags harder. A sudden surge of speed.',
+    apply: (g) => { g.run.settings.startSpeed += 6; g.run.settings.maxSpeed += 6; },
+  },
+  {
+    id: 'frenzy', name: 'Frenzy', tier: 3, gemBonus: 1.75,
+    desc: 'Blinding pace and ever-quickening dread. Speed and acceleration soar.',
+    apply: (g) => { g.run.settings.startSpeed += 9; g.run.settings.maxSpeed += 9; g.run.settings.accel += 0.12; },
+  },
+  {
+    id: 'onrush', name: 'Onrush', tier: 3, gemBonus: 1.6,
+    desc: 'The dead press closer. Obstacles pack much tighter together.',
+    apply: (g) => {
+      const o = g.spawner.opts;
+      o.baseGap = Math.max(9, (o.baseGap ?? 19) * 0.8);
+      o.minGap = Math.max(7, (o.minGap ?? 11) * 0.84);
+    },
+  },
+  {
+    id: 'gloom', name: 'Gloom', tier: 1, gemBonus: 0.6,
+    desc: 'The mist thickens. Obstacles surface later from the dark.',
+    apply: (g) => { g.world.setFogDensity(Math.min(0.06, g.world.fog.density + 0.012)); },
+  },
+  {
+    id: 'bloodhunt', name: 'Bloodhunt', tier: 2, gemBonus: 1.1,
+    desc: 'The beasts hunger. Charging hazards move faster and reach further.',
+    apply: (g) => { g.spawner.opts.hazardFury = true; },
+  },
+  {
+    id: 'vertigo', name: 'Vertigo', tier: 1, gemBonus: 0.7,
+    desc: 'The world will not hold still. The camera sways with dread.',
+    apply: (g) => { g.world.setVertigo(true); },
+  },
+];
+
+export function debuffById(id) {
+  return DEBUFFS.find((d) => d.id === id);
+}

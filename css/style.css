@@ -162,6 +162,32 @@ body {
 .go-line { font-size: 17px; margin: 4px 0; color: #b9b3a6; }
 .go-bank { color: var(--gold); font-family: 'Cinzel', serif; margin: 8px 0 18px; font-size: 19px; }
 
+/* ---------- wound choice ---------- */
+.choice-eyebrow { font-family: 'Cinzel', serif; letter-spacing: 0.26em; font-size: 12px; color: var(--gold); margin-bottom: 6px; }
+.choice-sub { font-style: italic; color: #a49e90; font-size: 15px; margin-bottom: 18px; text-align: center; }
+.choice-list { display: flex; flex-direction: column; gap: 11px; }
+.choice-card {
+  padding: 15px 16px; border: 1px solid rgba(120,110,90,0.28); border-radius: 3px;
+  background: rgba(18,14,12,0.7); cursor: pointer; text-align: left;
+  transition: transform 0.12s ease, border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+}
+.choice-card:hover, .choice-card:focus-visible {
+  border-color: var(--blood); background: rgba(60,10,10,0.5);
+  box-shadow: 0 0 30px rgba(179,17,17,0.3), inset 0 0 30px rgba(179,17,17,0.15);
+  transform: translateY(-2px); outline: none;
+}
+.choice-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.choice-name { font-family: 'Cinzel', serif; font-size: 19px; color: #ecdfca; letter-spacing: 0.02em; }
+.choice-skulls { font-size: 15px; letter-spacing: 2px; }
+.choice-skulls[data-tier="1"] { color: #9a8f6a; }
+.choice-skulls[data-tier="2"] { color: #d08a2a; }
+.choice-skulls[data-tier="3"] { color: var(--blood-bright); text-shadow: 0 0 10px rgba(255,42,42,0.6); }
+.choice-desc { font-size: 14.5px; color: #9a9488; line-height: 1.4; margin-bottom: 9px; }
+.choice-reward {
+  display: inline-block; font-family: 'Cinzel', serif; font-size: 14px; color: #f2d98a;
+  padding: 4px 11px; border: 1px solid rgba(201,162,39,0.4); border-radius: 2px; background: rgba(60,44,10,0.35);
+}
+
 /* ---------- HUD ---------- */
 #hud {
   position: fixed; inset: 0; z-index: 15; pointer-events: none;
@@ -179,6 +205,14 @@ body {
 }
 .hud-gems.pop { animation: gemPop 0.3s ease; }
 @keyframes gemPop { 0% { transform: scale(1); } 40% { transform: scale(1.35); color: var(--blood-bright); } 100% { transform: scale(1); } }
+.hud-gems-wrap { text-align: right; }
+.hud-yield { font-family: 'Cinzel', serif; font-size: 13px; color: var(--gold); text-shadow: 0 2px 6px rgba(0,0,0,0.9); margin-top: 1px; min-height: 15px; }
+.hud-debuffs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; max-width: 62%; }
+.hud-debuffs .wound {
+  font-family: 'Cinzel', serif; font-size: 11px; letter-spacing: 0.02em; color: #e7c9c9;
+  padding: 3px 8px; border: 1px solid rgba(179,17,17,0.5); border-radius: 2px;
+  background: rgba(60,10,10,0.45); text-shadow: 0 1px 3px #000;
+}
 .hud-speed-track { position: absolute; left: 22px; right: 22px; bottom: 44px; height: 3px; background: rgba(255,255,255,0.08); border-radius: 2px; }
 .hud-speed-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--gold), var(--blood-bright)); border-radius: 2px; box-shadow: 0 0 12px rgba(255,42,42,0.6); transition: width 0.2s ease; }
 .hud-hint { position: absolute; left: 0; right: 0; bottom: 16px; text-align: center; font-size: 12.5px; color: rgba(160,150,130,0.5); font-style: italic; }
