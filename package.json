@@ -1,0 +1,13 @@
+{
+  "name": "g-roll",
+  "version": "1.0.0",
+  "description": "G-ROLL — a skill-based endless runner in a cursed cathedral. No pay-to-win. Spend gems to curse yourself.",
+  "type": "module",
+  "scripts": {
+    "start": "node serve.mjs",
+    "serve": "node serve.mjs"
+  },
+  "keywords": ["game", "endless-runner", "three.js", "webgl", "skill", "horror"],
+  "license": "MIT",
+  "private": true
+}
