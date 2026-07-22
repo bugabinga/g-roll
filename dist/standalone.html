@@ -53804,18 +53804,81 @@ class Audio {
     lfo.start(now);
     this._lfo = lfo;
     this._droneFilter = filter;
+
+    // melodic bus for the escalating score
+    this._musicGain = this.ctx.createGain();
+    this._musicGain.gain.value = 0.0;
+    this._musicGain.gain.setTargetAtTime(0.5, now, 2.0);
+    this._musicGain.connect(this.master);
+    this._musicTimer = 0;
+    this._musicStep = 0;
   }
 
   stopDrone() {
     if (!this.ctx || !this._started) return;
     const now = this.ctx.currentTime;
     if (this.droneGain) this.droneGain.gain.setTargetAtTime(0, now, 0.4);
+    if (this._musicGain) this._musicGain.gain.setTargetAtTime(0, now, 0.3);
     setTimeout(() => {
       (this._droneOsc || []).forEach((o) => { try { o.stop(); } catch {} });
       try { this._lfo && this._lfo.stop(); } catch {}
       this._droneOsc = null;
       this._started = false;
+      this._musicGain = null;
     }, 900);
+  }
+
+  // Escalating score: an arpeggio in A-minor that grows denser, higher and
+  // faster as `intensity` (0..1, from time survived) climbs.
+  updateMusic(dt, intensity) {
+    if (!this.ctx || !this._started || this.muted || !this._musicGain) return;
+    const I = Math.min(1, Math.max(0, intensity));
+
+    // drone opens up (brighter) with tension
+    if (this._droneFilter) this._droneFilter.frequency.setTargetAtTime(320 + I * 1100, this.ctx.currentTime, 0.4);
+
+    const interval = 0.5 - I * 0.34;            // 0.5s calm -> ~0.16s frantic
+    this._musicTimer -= dt;
+    if (this._musicTimer > 0) return;
+    this._musicTimer = interval;
+
+    const step = this._musicStep++;
+    // A natural-minor motif; higher octave folds in as intensity rises
+    const scale = [220, 246.94, 261.63, 293.66, 329.63, 349.23, 392, 440];
+    const motif = [0, 2, 4, 3, 5, 4, 2, 0, 4, 6, 7, 5];
+    const density = 0.4 + I * 0.6;              // chance a step actually sounds
+    if (Math.random() < density) {
+      let f = scale[motif[step % motif.length]];
+      if (I > 0.55 && step % 2 === 0) f *= 2;   // sparkle up an octave when tense
+      this._pluck(f, 0.09 + I * 0.06);
+    }
+    // a driving bass pulse every 4 steps, arriving once things heat up
+    if (step % 4 === 0 && I > 0.18) this._bass(110, 0.16 + I * 0.12);
+  }
+
+  _pluck(freq, vol) {
+    const now = this.ctx.currentTime;
+    const o = this.ctx.createOscillator();
+    o.type = 'triangle'; o.frequency.value = freq;
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0, now);
+    g.gain.linearRampToValueAtTime(vol, now + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.0008, now + 0.32);
+    o.connect(g); g.connect(this._musicGain);
+    o.start(now); o.stop(now + 0.34);
+  }
+
+  _bass(freq, vol) {
+    const now = this.ctx.currentTime;
+    const o = this.ctx.createOscillator();
+    o.type = 'sawtooth'; o.frequency.value = freq;
+    const lp = this.ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 260;
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0, now);
+    g.gain.linearRampToValueAtTime(vol, now + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.001, now + 0.36);
+    o.connect(lp); lp.connect(g); g.connect(this._musicGain);
+    o.start(now); o.stop(now + 0.38);
   }
 
   // heartbeat cadence tracks danger; call each frame with normalised speed 0..1
@@ -53848,16 +53911,59 @@ class Audio {
   gem() {
     if (!this.ctx || this.muted) return;
     const now = this.ctx.currentTime;
+    // a crystalline two-note bell chime with an octave partial + a high sparkle
+    const notes = [1318.5, 1975.5]; // E6 -> B6, a bright rising fifth
+    notes.forEach((f, i) => {
+      const t = now + i * 0.055;
+      [[1, 0.16, 'triangle'], [2.01, 0.06, 'sine'], [3.0, 0.03, 'sine']].forEach(([h, vol, type]) => {
+        const o = this.ctx.createOscillator();
+        o.type = type; o.frequency.value = f * h;
+        const g = this.ctx.createGain();
+        g.gain.setValueAtTime(0, t);
+        g.gain.linearRampToValueAtTime(vol, t + 0.004);
+        g.gain.exponentialRampToValueAtTime(0.0006, t + 0.42);
+        o.connect(g); g.connect(this.master);
+        o.start(t); o.stop(t + 0.45);
+      });
+    });
+    // shimmer ping
+    const s = this.ctx.createOscillator();
+    s.type = 'sine'; s.frequency.setValueAtTime(2637, now); s.frequency.exponentialRampToValueAtTime(3951, now + 0.12);
+    const sg = this.ctx.createGain();
+    sg.gain.setValueAtTime(0.05, now); sg.gain.exponentialRampToValueAtTime(0.0005, now + 0.2);
+    s.connect(sg); sg.connect(this.master); s.start(now); s.stop(now + 0.22);
+  }
+
+  // bright metallic "boing" when you land on top of an explosive
+  bombBounce() {
+    if (!this.ctx || this.muted) return;
+    const now = this.ctx.currentTime;
     const o = this.ctx.createOscillator();
-    o.type = 'triangle';
-    o.frequency.setValueAtTime(880, now);
-    o.frequency.exponentialRampToValueAtTime(1760, now + 0.09);
+    o.type = 'square';
+    o.frequency.setValueAtTime(180, now);
+    o.frequency.exponentialRampToValueAtTime(620, now + 0.14);
     const g = this.ctx.createGain();
-    g.gain.setValueAtTime(0.0, now);
-    g.gain.linearRampToValueAtTime(0.22, now + 0.01);
-    g.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
-    o.connect(g); g.connect(this.master);
-    o.start(now); o.stop(now + 0.2);
+    g.gain.setValueAtTime(0.16, now); g.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+    o.connect(g); g.connect(this.master); o.start(now); o.stop(now + 0.24);
+    // little coin-like ting on top for "bonus"
+    const t2 = this.ctx.createOscillator(); t2.type = 'triangle'; t2.frequency.value = 1568;
+    const g2 = this.ctx.createGain(); g2.gain.setValueAtTime(0.1, now + 0.02); g2.gain.exponentialRampToValueAtTime(0.001, now + 0.24);
+    t2.connect(g2); g2.connect(this.master); t2.start(now + 0.02); t2.stop(now + 0.26);
+  }
+
+  explosion() {
+    if (!this.ctx || this.muted) return;
+    const now = this.ctx.currentTime;
+    // low boom
+    const o = this.ctx.createOscillator();
+    o.type = 'sine'; o.frequency.setValueAtTime(120, now); o.frequency.exponentialRampToValueAtTime(30, now + 0.5);
+    const g = this.ctx.createGain(); g.gain.setValueAtTime(0.5, now); g.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+    o.connect(g); g.connect(this.master); o.start(now); o.stop(now + 0.62);
+    // noise crackle
+    const src = this.ctx.createBufferSource(); src.buffer = this._noiseBuffer(0.5);
+    const bp = this.ctx.createBiquadFilter(); bp.type = 'lowpass'; bp.frequency.setValueAtTime(2200, now); bp.frequency.exponentialRampToValueAtTime(200, now + 0.5);
+    const ng = this.ctx.createGain(); ng.gain.setValueAtTime(0.5, now); ng.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
+    src.connect(bp); bp.connect(ng); ng.connect(this.master); src.start(now); src.stop(now + 0.55);
   }
 
   jump() { this._whoosh(520, 0.14, 0.14); }
@@ -54052,6 +54158,69 @@ class Blood {
   reset() { this.active = 0; this.points.visible = false; for (let i=0;i<this.max;i++) this.life[i]=0; }
 }
 
+// ---- fiery sparks (explosions / bounces) -----------------------------------
+class Sparks {
+  constructor(scene) {
+    this.max = 220;
+    this.geo = new THREE.BufferGeometry();
+    this.pos = new Float32Array(this.max * 3);
+    this.vel = new Float32Array(this.max * 3);
+    this.life = new Float32Array(this.max);
+    this.col = new Float32Array(this.max * 3);
+    this.geo.setAttribute('position', new THREE.BufferAttribute(this.pos, 3));
+    this.geo.setAttribute('color', new THREE.BufferAttribute(this.col, 3));
+    const mat = new THREE.PointsMaterial({
+      size: 0.28, vertexColors: true, transparent: true, opacity: 1.0,
+      depthWrite: false, blending: THREE.AdditiveBlending,
+    });
+    this.points = new THREE.Points(this.geo, mat);
+    this.points.frustumCulled = false;
+    this.points.visible = false;
+    scene.add(this.points);
+    this.active = 0;
+    this._head = 0;
+  }
+
+  burst(x, y, z, power = 1) {
+    this.points.visible = true;
+    const n = Math.floor(60 * power);
+    for (let k = 0; k < n; k++) {
+      const i = this._head; this._head = (this._head + 1) % this.max;
+      this.pos[i*3] = x; this.pos[i*3+1] = y; this.pos[i*3+2] = z;
+      const a = Math.random() * Math.PI * 2, p = Math.random() * Math.PI;
+      const s = (3 + Math.random() * 10) * power;
+      this.vel[i*3]   = Math.sin(p)*Math.cos(a)*s;
+      this.vel[i*3+1] = Math.abs(Math.cos(p))*s + 2;
+      this.vel[i*3+2] = Math.sin(p)*Math.sin(a)*s;
+      this.life[i] = 0.4 + Math.random() * 0.6;
+      const hot = Math.random();
+      this.col[i*3]   = 1.0;
+      this.col[i*3+1] = 0.4 + hot * 0.55;    // yellow-orange
+      this.col[i*3+2] = hot * 0.25;
+    }
+    this.active = this.max;
+    this.geo.attributes.color.needsUpdate = true;
+  }
+
+  update(dt) {
+    if (this.active <= 0) { this.points.visible = false; return; }
+    let alive = 0;
+    for (let i = 0; i < this.max; i++) {
+      if (this.life[i] <= 0) continue;
+      this.life[i] -= dt;
+      this.vel[i*3+1] += -18 * dt;
+      this.pos[i*3]   += this.vel[i*3]   * dt;
+      this.pos[i*3+1] += this.vel[i*3+1] * dt;
+      this.pos[i*3+2] += this.vel[i*3+2] * dt;
+      if (this.life[i] > 0) alive++;
+    }
+    this.active = alive;
+    this.geo.attributes.position.needsUpdate = true;
+  }
+
+  reset() { this.active = 0; this.points.visible = false; for (let i=0;i<this.max;i++) this.life[i]=0; }
+}
+
 
 /* ===== player.js ===== */
 // ============================================================================
@@ -54071,6 +54240,7 @@ class Player {
     this.targetX = LANES[1];
     this.y = 0;            // feet height above floor
     this.vy = 0;
+    this.groundY = 0;      // current floor height under the player (ramps raise it)
     this.airborne = false;
     this.rolling = false;
     this.rollTimer = 0;
@@ -54220,14 +54390,19 @@ class Player {
       this.x = this.targetX;
     }
 
-    // vertical physics
+    // vertical physics (groundY tracks ramps / platform tops)
     if (this.airborne) {
       this.vy += CONFIG.gravity * dt;
       this.y += this.vy * dt;
-      if (this.y <= 0) {
-        this.y = 0; this.vy = 0; this.airborne = false; this._coyote = CONFIG.coyoteTime;
+      if (this.y <= this.groundY) {
+        this.y = this.groundY; this.vy = 0; this.airborne = false; this._coyote = CONFIG.coyoteTime;
       }
     } else {
+      if (this.groundY < this.y - 0.02) {
+        this.airborne = true; this.vy = 0;      // ran off an edge → fall
+      } else {
+        this.y = this.groundY;                  // glued to the (possibly rising) ground
+      }
       this._coyote = Math.max(0, this._coyote - dt);
     }
 
@@ -54296,6 +54471,7 @@ class Player {
     this.laneIndex = 1;
     this.x = this.targetX = this._laneFrom = LANES[1];
     this.y = this.vy = 0;
+    this.groundY = 0;
     this.airborne = false; this.rolling = false; this.rollTimer = 0;
     this._laneT = 1; this._coyote = 0; this.alive = true;
     this.group.visible = true;
@@ -54336,6 +54512,7 @@ class World {
     this._camBaseY = 4.3;
 
     this._buildLights();
+    this._buildSky();
     this._buildStars();
     this._buildSegments();
     this._buildHorizon();
@@ -54439,6 +54616,25 @@ class World {
       this.segments.push(seg);
     }
     this._frontZ = -(COUNT - 1) * SEG; // z of the furthest segment edge
+  }
+
+  _buildSky() {
+    // A single big gradient dome — deep indigo overhead fading to an ember-lit
+    // horizon. One unlit mesh, no per-frame cost, big depth payoff.
+    const geo = new THREE.SphereGeometry(300, 24, 16);
+    const top = new THREE.Color(0x0a0a1c), mid = new THREE.Color(0x0d0d16), horizon = new THREE.Color(0x1c0a12);
+    const pos = geo.attributes.position;
+    const col = new Float32Array(pos.count * 3);
+    const c = new THREE.Color();
+    for (let i = 0; i < pos.count; i++) {
+      const h = THREE.MathUtils.clamp((pos.getY(i) / 300 + 0.15) / 1.15, 0, 1);
+      if (h < 0.4) c.copy(horizon).lerp(mid, h / 0.4);
+      else c.copy(mid).lerp(top, (h - 0.4) / 0.6);
+      col[i*3] = c.r; col[i*3+1] = c.g; col[i*3+2] = c.b;
+    }
+    geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    const sky = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false, depthWrite: false }));
+    this.scene.add(sky);
   }
 
   _buildStars() {
@@ -54684,7 +54880,61 @@ function makeBeast() {        // charging horror — the "train". CHANGE LANE
   return g;
 }
 
-const FACTORY = { low: makeLow, high: makeHigh, block: makeBlock, gap: makeGap, beast: makeBeast, pad: makePad };
+function makeBomb() {          // explosive — JUMP ON TOP for bonus, walk in = death
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(
+    new THREE.IcosahedronGeometry(0.55, 1),
+    new THREE.MeshStandardMaterial({ color: 0x121212, roughness: 0.45, metalness: 0.75 })
+  );
+  body.position.y = 0.6; g.add(body);
+  // glowing molten cracks
+  const cracks = new THREE.Mesh(
+    new THREE.IcosahedronGeometry(0.575, 1),
+    new THREE.MeshBasicMaterial({ color: 0xff3a00, wireframe: true, transparent: true, opacity: 0.55 })
+  );
+  cracks.position.y = 0.6; g.add(cracks); g.userData.cracks = cracks;
+  // fuse + sparking tip
+  const fuse = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.32, 5),
+    new THREE.MeshStandardMaterial({ color: 0x201d16, roughness: 1 }));
+  fuse.position.set(0, 1.16, 0); fuse.rotation.z = 0.35; g.add(fuse);
+  const spark = new THREE.Mesh(new THREE.SphereGeometry(0.1, 6, 6), new THREE.MeshBasicMaterial({ color: 0xffe14a }));
+  spark.position.set(0.08, 1.33, 0); g.add(spark); g.userData.spark = spark;
+  g.userData.type = 'bomb'; g.userData.depth = 1.0; g.userData.topY = 1.16;
+  return g;
+}
+
+const PLAT = { H: 1.5, L: 12, RAMP: 3 };
+function makePlatform() {       // a train — run up the ramp onto the upper layer
+  const g = new THREE.Group();
+  const { H, L, RAMP } = PLAT;
+  const bodyLen = L - 2 * RAMP;
+  const side = new THREE.MeshStandardMaterial({ color: 0x2b3040, roughness: 0.55, metalness: 0.55 });
+  const topMat = new THREE.MeshStandardMaterial({ color: 0x3a4252, roughness: 0.45, metalness: 0.6 });
+
+  const body = new THREE.Mesh(new THREE.BoxGeometry(1.92, H, bodyLen), side);
+  body.position.set(0, H / 2, 0); g.add(body);
+  const top = new THREE.Mesh(new THREE.BoxGeometry(2.02, 0.14, bodyLen), topMat);
+  top.position.set(0, H + 0.07, 0); g.add(top);
+  const strip = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.04, bodyLen * 0.92),
+    new THREE.MeshStandardMaterial({ color: 0x240505, emissive: 0xff2a2a, emissiveIntensity: 1.1, roughness: 0.5 }));
+  strip.position.set(0, H + 0.15, 0); g.add(strip);
+
+  const slopeLen = Math.hypot(RAMP, H);
+  const angle = Math.atan2(H, RAMP);
+  const rampMat = new THREE.MeshStandardMaterial({ color: 0x333c4c, roughness: 0.5, metalness: 0.55 });
+  const front = new THREE.Mesh(new THREE.BoxGeometry(1.92, 0.2, slopeLen), rampMat);
+  front.position.set(0, H / 2, bodyLen / 2 + RAMP / 2); front.rotation.x = -angle; g.add(front);
+  const back = new THREE.Mesh(new THREE.BoxGeometry(1.92, 0.2, slopeLen), rampMat);
+  back.position.set(0, H / 2, -(bodyLen / 2 + RAMP / 2)); back.rotation.x = angle; g.add(back);
+
+  g.userData.type = 'platform'; g.userData.depth = L;
+  return g;
+}
+
+const FACTORY = {
+  low: makeLow, high: makeHigh, block: makeBlock, gap: makeGap,
+  beast: makeBeast, pad: makePad, bomb: makeBomb, platform: makePlatform,
+};
 
 function makeGem() {
   // A faceted rune. The bright core (unlit MeshBasic) + a translucent standard
@@ -54722,6 +54972,7 @@ const ROWS = {
     ['block', 'block', n], [n, 'block', 'block'],
     ['beast', n, n], [n, n, 'beast'],
     ['low', n, 'high'], ['high', n, 'low'],
+    ['bomb', n, n], [n, 'bomb', n], [n, n, 'bomb'],   // jump on for bonus
   ],
   hard: [
     ['gap', 'gap', 'gap'], ['low', 'low', 'low'], ['high', 'high', 'high'],
@@ -54729,6 +54980,7 @@ const ROWS = {
     ['block', 'high', 'high'], ['high', 'block', 'high'],
     [n, 'beast', n], ['beast', n, 'block'], ['block', n, 'beast'],
     ['gap', 'block', 'gap'], ['high', 'gap', 'high'],
+    ['bomb', n, 'bomb'], ['block', 'bomb', 'block'], ['bomb', 'low', 'bomb'],
   ],
 };
 
@@ -54736,7 +54988,7 @@ const ROWS = {
 class Spawner {
   constructor(scene, opts = {}) {
     this.scene = scene;
-    this.pools = { low: [], high: [], block: [], gap: [], beast: [], pad: [] };
+    this.pools = { low: [], high: [], block: [], gap: [], beast: [], pad: [], bomb: [], platform: [] };
     this.active = [];       // obstacles
     this.gems = [];
     this.gemPool = [];
@@ -54810,6 +55062,10 @@ class Spawner {
         o.mesh.position.y = Math.sin(this._t * 8 + i) * 0.06; // lurching gait
       } else if (o.type === 'pad' && o.mesh.userData.spin) {
         o.mesh.userData.spin.rotation.z += dt * 3;            // spinning rune ring
+      } else if (o.type === 'bomb') {
+        const sp = o.mesh.userData.spark; if (sp) sp.scale.setScalar(0.7 + Math.random() * 0.7);
+        const cr = o.mesh.userData.cracks; if (cr) cr.material.opacity = 0.4 + Math.sin(this._t * 6 + o.z) * 0.2;
+        o.mesh.rotation.y += dt * 0.6;
       }
       if (o.z > CONFIG.despawnBehind) {
         this._release(o);
@@ -54842,6 +55098,18 @@ class Spawner {
     const diff = this._difficulty(speed);
     this.rowCount++;
     this._lastRowZ = z;
+
+    // --- second-layer train: run up the front ramp onto the upper deck, ride it
+    //     (gems reward the climb), then down the back ramp. Other lanes stay open.
+    if (this.rowCount > 6 && !this._padReserve && Math.random() < 0.09) {
+      const lane = (Math.random() * 3) | 0;
+      const mesh = this._acquire('platform');
+      mesh.position.set(LANES[lane], 0, z);
+      this.active.push({ type: 'platform', lane, z, depth: mesh.userData.depth, mesh });
+      this._spawnGemLine(lane, z - PLAT.L / 2 + PLAT.RAMP + 1, false, PLAT.H + 0.8);
+      this._padReserve = { lane, rows: 2 };
+      return;
+    }
 
     // --- jump-pad breather row: a springboard in one lane, rest clear. The next
     //     couple of rows keep that lane open (+ gems) so the launch is rewarded
@@ -54900,14 +55168,14 @@ class Spawner {
     }
   }
 
-  _spawnGemLine(lane, z, arc) {
+  _spawnGemLine(lane, z, arc, baseY = 1.0) {
     const count = 4 + ((Math.random() * 3) | 0);
     for (let i = 0; i < count; i++) {
       const gz = z + i * 1.6;
-      let y = 1.0;
+      let y = baseY;
       if (arc) {
         const t = i / (count - 1);
-        y = 1.0 + Math.sin(t * Math.PI) * 2.2;   // arc peaks ~3.2 → needs a jump
+        y = baseY + Math.sin(t * Math.PI) * 2.2;   // arc peaks → needs a jump
       }
       const m = this._acquireGem();
       m.position.set(LANES[lane], y, gz);
@@ -54919,7 +55187,7 @@ class Spawner {
   //  Collision — returns 'dead' if the player struck something fatal.
   //  Calls onGem for each rune collected this frame.
   // -------------------------------------------------------------------------
-  collide(player, onGem, onPad) {
+  collide(player, onGem, onPad, onBomb) {
     // gems first (generous)
     for (let i = this.gems.length - 1; i >= 0; i--) {
       const g = this.gems[i];
@@ -54933,16 +55201,46 @@ class Spawner {
       }
     }
 
-    // obstacles + jump pads
+    // ground height from platforms (the upper layer) — resolved first
+    let groundH = 0, onAnyPlatform = false, platformDeath = null;
     for (const o of this.active) {
-      if (o.lane !== player.laneIndex) continue;
+      if (o.type !== 'platform' || o.lane !== player.laneIndex) continue;
+      const local = -o.z;                          // player position within the train
+      const half = PLAT.L / 2, inner = half - PLAT.RAMP;
+      if (Math.abs(local) > half + PLAYER_HALF_DEPTH) continue;
+      onAnyPlatform = true;
+      if (local > inner) {                          // front ramp: always rideable
+        groundH = Math.max(groundH, PLAT.H * (half - local) / PLAT.RAMP);
+        player._mounted = true;
+      } else if (local < -inner) {                  // back ramp
+        if (player._mounted || player.y > PLAT.H - 0.5) { player._mounted = true; groundH = Math.max(groundH, PLAT.H * (local + half) / PLAT.RAMP); }
+        else platformDeath = o;                     // ran into the back at ground level
+      } else {                                       // flat top / body
+        if (player._mounted || player.y > PLAT.H - 0.5) { player._mounted = true; groundH = Math.max(groundH, PLAT.H); }
+        else platformDeath = o;                     // hit the side of the train
+      }
+    }
+    if (!onAnyPlatform) player._mounted = false;
+    player.groundY = groundH;
+    if (platformDeath) return platformDeath;
+
+    // obstacles + pads + bombs
+    for (const o of this.active) {
+      if (o.lane !== player.laneIndex || o.type === 'platform') continue;
       const overlap = Math.abs(o.z) < (o.depth / 2 + PLAYER_HALF_DEPTH);
       if (!overlap) continue;
       if (o.type === 'pad') {
-        // launch once, only if you cross it on foot (not already airborne)
-        if (!o.used && !player.airborne && player.bottom < 0.35) {
-          o.used = true;
-          onPad && onPad(o.mesh.position.clone());
+        if (!o.used && !player.airborne && player.bottom < groundH + 0.35) {
+          o.used = true; onPad && onPad(o.mesh.position.clone());
+        }
+        continue;
+      }
+      if (o.type === 'bomb') {
+        const top = o.mesh.userData.topY ?? 1.16;
+        if (player.bottom >= top - 0.05) {          // clearing / landing on top → safe
+          if (!o.used && player.airborne) { o.used = true; onBomb && onBomb(o.mesh.position.clone()); }
+        } else {
+          return o;                                  // walked straight into it → boom
         }
         continue;
       }
@@ -55186,6 +55484,7 @@ class Game {
     this.player = new Player(this.world.scene);
     this.embers = new Embers(this.world.scene);
     this.blood = new Blood(this.world.scene);
+    this.sparks = new Sparks(this.world.scene);
     this.spawner = new Spawner(this.world.scene, {});
 
     this.input = new Input();
@@ -55248,7 +55547,7 @@ class Game {
 
     this.run = {
       settings: s, mult, elapsed: 0, speed: s.startSpeed,
-      distance: 0, score: 0, gems: 0, curses: active.slice(),
+      distance: 0, score: 0, bonus: 0, gems: 0, curses: active.slice(),
       dieTimer: 0,
       gemYield: 1,            // gems gained per rune — grows with each wound taken
       nextChoiceAt: 60,       // seconds of play until the next forced wound
@@ -55258,6 +55557,7 @@ class Game {
     this.player.reset();
     this.spawner.reset();
     this.blood.reset();
+    this.sparks.reset();
     this.input.clear();
     this.input.enabled = true;
 
@@ -55307,7 +55607,11 @@ class Game {
     this.input.enabled = false;
     const p = this.player.group.position;
     this.blood.burst(p.x, p.y + 1.0, p.z);
-    this.world.addShake(CONFIG.cameraShakeDeath);
+    if (cause && cause.type === 'bomb') {
+      this.sparks.burst(p.x, p.y + 0.8, p.z, 1.6);   // fiery blast
+      this.audio.explosion();
+    }
+    this.world.addShake(cause && cause.type === 'bomb' ? 1.3 : CONFIG.cameraShakeDeath);
     this.audio.death();
     this.audio.stopDrone();
     // banking happens once, at the transition to the death screen
@@ -55357,7 +55661,7 @@ class Game {
     r.elapsed += dt;
     r.speed = Math.min(r.settings.maxSpeed, r.settings.startSpeed + r.settings.accel * r.elapsed);
     r.distance += r.speed * dt * 0.5;                 // metres (0.5 = feel tuning)
-    r.score = r.distance * CONFIG.distanceToScore * r.mult;
+    r.score = r.distance * CONFIG.distanceToScore * r.mult + r.bonus;
 
     // input → intents
     this.input.update(dt);
@@ -55372,6 +55676,7 @@ class Game {
     this.spawner.update(dt, r.speed, this.player);
     this.embers.update(dt, r.speed, this.world.camera.position.z);
     this.blood.update(dt);
+    this.sparks.update(dt);
 
     // collisions
     const hit = this.spawner.collide(this.player,
@@ -55384,12 +55689,22 @@ class Game {
         this.player.launch();
         this.audio.jump();
         this.world.addShake(0.25);
+      },
+      (pos) => {                      // onBomb — landed on top of an explosive
+        r.bonus += 75 * r.mult;
+        if (this.player.vy < 0) this.player.vy = CONFIG.jumpVelocity * 0.6; // little bounce
+        this.audio.bombBounce();
+        this.sparks.burst(pos.x, pos.y + 0.6, pos.z, 0.6);
+        this.world.addShake(0.2);
       });
     if (hit) { this.die(hit); return; }
 
-    // heartbeat quickens with speed
+    // heartbeat quickens with speed; music escalates with time survived
     const speedPct = (r.speed - r.settings.startSpeed) / (r.settings.maxSpeed - r.settings.startSpeed);
-    this.audio.updateHeart(dt, THREE.MathUtils.clamp(speedPct, 0, 1));
+    const clampedSpeed = THREE.MathUtils.clamp(speedPct, 0, 1);
+    this.audio.updateHeart(dt, clampedSpeed);
+    const musicIntensity = Math.max(Math.min(1, r.elapsed / 90), clampedSpeed * 0.75);
+    this.audio.updateMusic(dt, musicIntensity);
 
     this.ui.updateHUD({
       score: r.score, gems: r.gems, mult: r.mult,
@@ -55410,6 +55725,7 @@ class Game {
     this.spawner.update(dt * slow, r.speed, this.player);
     this.embers.update(dt, r.speed * slow, this.world.camera.position.z);
     this.blood.update(dt);
+    this.sparks.update(dt);
     if (r.dieTimer <= 0) this.finishRun();
   }
 

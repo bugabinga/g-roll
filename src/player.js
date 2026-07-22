@@ -17,6 +17,7 @@ export class Player {
     this.targetX = LANES[1];
     this.y = 0;            // feet height above floor
     this.vy = 0;
+    this.groundY = 0;      // current floor height under the player (ramps raise it)
     this.airborne = false;
     this.rolling = false;
     this.rollTimer = 0;
@@ -166,14 +167,19 @@ export class Player {
       this.x = this.targetX;
     }
 
-    // vertical physics
+    // vertical physics (groundY tracks ramps / platform tops)
     if (this.airborne) {
       this.vy += CONFIG.gravity * dt;
       this.y += this.vy * dt;
-      if (this.y <= 0) {
-        this.y = 0; this.vy = 0; this.airborne = false; this._coyote = CONFIG.coyoteTime;
+      if (this.y <= this.groundY) {
+        this.y = this.groundY; this.vy = 0; this.airborne = false; this._coyote = CONFIG.coyoteTime;
       }
     } else {
+      if (this.groundY < this.y - 0.02) {
+        this.airborne = true; this.vy = 0;      // ran off an edge → fall
+      } else {
+        this.y = this.groundY;                  // glued to the (possibly rising) ground
+      }
       this._coyote = Math.max(0, this._coyote - dt);
     }
 
@@ -242,6 +248,7 @@ export class Player {
     this.laneIndex = 1;
     this.x = this.targetX = this._laneFrom = LANES[1];
     this.y = this.vy = 0;
+    this.groundY = 0;
     this.airborne = false; this.rolling = false; this.rollTimer = 0;
     this._laneT = 1; this._coyote = 0; this.alive = true;
     this.group.visible = true;

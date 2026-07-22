@@ -126,7 +126,61 @@ function makeBeast() {        // charging horror — the "train". CHANGE LANE
   return g;
 }
 
-const FACTORY = { low: makeLow, high: makeHigh, block: makeBlock, gap: makeGap, beast: makeBeast, pad: makePad };
+function makeBomb() {          // explosive — JUMP ON TOP for bonus, walk in = death
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(
+    new THREE.IcosahedronGeometry(0.55, 1),
+    new THREE.MeshStandardMaterial({ color: 0x121212, roughness: 0.45, metalness: 0.75 })
+  );
+  body.position.y = 0.6; g.add(body);
+  // glowing molten cracks
+  const cracks = new THREE.Mesh(
+    new THREE.IcosahedronGeometry(0.575, 1),
+    new THREE.MeshBasicMaterial({ color: 0xff3a00, wireframe: true, transparent: true, opacity: 0.55 })
+  );
+  cracks.position.y = 0.6; g.add(cracks); g.userData.cracks = cracks;
+  // fuse + sparking tip
+  const fuse = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.32, 5),
+    new THREE.MeshStandardMaterial({ color: 0x201d16, roughness: 1 }));
+  fuse.position.set(0, 1.16, 0); fuse.rotation.z = 0.35; g.add(fuse);
+  const spark = new THREE.Mesh(new THREE.SphereGeometry(0.1, 6, 6), new THREE.MeshBasicMaterial({ color: 0xffe14a }));
+  spark.position.set(0.08, 1.33, 0); g.add(spark); g.userData.spark = spark;
+  g.userData.type = 'bomb'; g.userData.depth = 1.0; g.userData.topY = 1.16;
+  return g;
+}
+
+const PLAT = { H: 1.5, L: 12, RAMP: 3 };
+function makePlatform() {       // a train — run up the ramp onto the upper layer
+  const g = new THREE.Group();
+  const { H, L, RAMP } = PLAT;
+  const bodyLen = L - 2 * RAMP;
+  const side = new THREE.MeshStandardMaterial({ color: 0x2b3040, roughness: 0.55, metalness: 0.55 });
+  const topMat = new THREE.MeshStandardMaterial({ color: 0x3a4252, roughness: 0.45, metalness: 0.6 });
+
+  const body = new THREE.Mesh(new THREE.BoxGeometry(1.92, H, bodyLen), side);
+  body.position.set(0, H / 2, 0); g.add(body);
+  const top = new THREE.Mesh(new THREE.BoxGeometry(2.02, 0.14, bodyLen), topMat);
+  top.position.set(0, H + 0.07, 0); g.add(top);
+  const strip = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.04, bodyLen * 0.92),
+    new THREE.MeshStandardMaterial({ color: 0x240505, emissive: 0xff2a2a, emissiveIntensity: 1.1, roughness: 0.5 }));
+  strip.position.set(0, H + 0.15, 0); g.add(strip);
+
+  const slopeLen = Math.hypot(RAMP, H);
+  const angle = Math.atan2(H, RAMP);
+  const rampMat = new THREE.MeshStandardMaterial({ color: 0x333c4c, roughness: 0.5, metalness: 0.55 });
+  const front = new THREE.Mesh(new THREE.BoxGeometry(1.92, 0.2, slopeLen), rampMat);
+  front.position.set(0, H / 2, bodyLen / 2 + RAMP / 2); front.rotation.x = -angle; g.add(front);
+  const back = new THREE.Mesh(new THREE.BoxGeometry(1.92, 0.2, slopeLen), rampMat);
+  back.position.set(0, H / 2, -(bodyLen / 2 + RAMP / 2)); back.rotation.x = angle; g.add(back);
+
+  g.userData.type = 'platform'; g.userData.depth = L;
+  return g;
+}
+
+const FACTORY = {
+  low: makeLow, high: makeHigh, block: makeBlock, gap: makeGap,
+  beast: makeBeast, pad: makePad, bomb: makeBomb, platform: makePlatform,
+};
 
 function makeGem() {
   // A faceted rune. The bright core (unlit MeshBasic) + a translucent standard
@@ -164,6 +218,7 @@ const ROWS = {
     ['block', 'block', n], [n, 'block', 'block'],
     ['beast', n, n], [n, n, 'beast'],
     ['low', n, 'high'], ['high', n, 'low'],
+    ['bomb', n, n], [n, 'bomb', n], [n, n, 'bomb'],   // jump on for bonus
   ],
   hard: [
     ['gap', 'gap', 'gap'], ['low', 'low', 'low'], ['high', 'high', 'high'],
@@ -171,6 +226,7 @@ const ROWS = {
     ['block', 'high', 'high'], ['high', 'block', 'high'],
     [n, 'beast', n], ['beast', n, 'block'], ['block', n, 'beast'],
     ['gap', 'block', 'gap'], ['high', 'gap', 'high'],
+    ['bomb', n, 'bomb'], ['block', 'bomb', 'block'], ['bomb', 'low', 'bomb'],
   ],
 };
 
@@ -178,7 +234,7 @@ const ROWS = {
 export class Spawner {
   constructor(scene, opts = {}) {
     this.scene = scene;
-    this.pools = { low: [], high: [], block: [], gap: [], beast: [], pad: [] };
+    this.pools = { low: [], high: [], block: [], gap: [], beast: [], pad: [], bomb: [], platform: [] };
     this.active = [];       // obstacles
     this.gems = [];
     this.gemPool = [];
@@ -252,6 +308,10 @@ export class Spawner {
         o.mesh.position.y = Math.sin(this._t * 8 + i) * 0.06; // lurching gait
       } else if (o.type === 'pad' && o.mesh.userData.spin) {
         o.mesh.userData.spin.rotation.z += dt * 3;            // spinning rune ring
+      } else if (o.type === 'bomb') {
+        const sp = o.mesh.userData.spark; if (sp) sp.scale.setScalar(0.7 + Math.random() * 0.7);
+        const cr = o.mesh.userData.cracks; if (cr) cr.material.opacity = 0.4 + Math.sin(this._t * 6 + o.z) * 0.2;
+        o.mesh.rotation.y += dt * 0.6;
       }
       if (o.z > CONFIG.despawnBehind) {
         this._release(o);
@@ -284,6 +344,18 @@ export class Spawner {
     const diff = this._difficulty(speed);
     this.rowCount++;
     this._lastRowZ = z;
+
+    // --- second-layer train: run up the front ramp onto the upper deck, ride it
+    //     (gems reward the climb), then down the back ramp. Other lanes stay open.
+    if (this.rowCount > 6 && !this._padReserve && Math.random() < 0.09) {
+      const lane = (Math.random() * 3) | 0;
+      const mesh = this._acquire('platform');
+      mesh.position.set(LANES[lane], 0, z);
+      this.active.push({ type: 'platform', lane, z, depth: mesh.userData.depth, mesh });
+      this._spawnGemLine(lane, z - PLAT.L / 2 + PLAT.RAMP + 1, false, PLAT.H + 0.8);
+      this._padReserve = { lane, rows: 2 };
+      return;
+    }
 
     // --- jump-pad breather row: a springboard in one lane, rest clear. The next
     //     couple of rows keep that lane open (+ gems) so the launch is rewarded
@@ -342,14 +414,14 @@ export class Spawner {
     }
   }
 
-  _spawnGemLine(lane, z, arc) {
+  _spawnGemLine(lane, z, arc, baseY = 1.0) {
     const count = 4 + ((Math.random() * 3) | 0);
     for (let i = 0; i < count; i++) {
       const gz = z + i * 1.6;
-      let y = 1.0;
+      let y = baseY;
       if (arc) {
         const t = i / (count - 1);
-        y = 1.0 + Math.sin(t * Math.PI) * 2.2;   // arc peaks ~3.2 → needs a jump
+        y = baseY + Math.sin(t * Math.PI) * 2.2;   // arc peaks → needs a jump
       }
       const m = this._acquireGem();
       m.position.set(LANES[lane], y, gz);
@@ -361,7 +433,7 @@ export class Spawner {
   //  Collision — returns 'dead' if the player struck something fatal.
   //  Calls onGem for each rune collected this frame.
   // -------------------------------------------------------------------------
-  collide(player, onGem, onPad) {
+  collide(player, onGem, onPad, onBomb) {
     // gems first (generous)
     for (let i = this.gems.length - 1; i >= 0; i--) {
       const g = this.gems[i];
@@ -375,16 +447,46 @@ export class Spawner {
       }
     }
 
-    // obstacles + jump pads
+    // ground height from platforms (the upper layer) — resolved first
+    let groundH = 0, onAnyPlatform = false, platformDeath = null;
     for (const o of this.active) {
-      if (o.lane !== player.laneIndex) continue;
+      if (o.type !== 'platform' || o.lane !== player.laneIndex) continue;
+      const local = -o.z;                          // player position within the train
+      const half = PLAT.L / 2, inner = half - PLAT.RAMP;
+      if (Math.abs(local) > half + PLAYER_HALF_DEPTH) continue;
+      onAnyPlatform = true;
+      if (local > inner) {                          // front ramp: always rideable
+        groundH = Math.max(groundH, PLAT.H * (half - local) / PLAT.RAMP);
+        player._mounted = true;
+      } else if (local < -inner) {                  // back ramp
+        if (player._mounted || player.y > PLAT.H - 0.5) { player._mounted = true; groundH = Math.max(groundH, PLAT.H * (local + half) / PLAT.RAMP); }
+        else platformDeath = o;                     // ran into the back at ground level
+      } else {                                       // flat top / body
+        if (player._mounted || player.y > PLAT.H - 0.5) { player._mounted = true; groundH = Math.max(groundH, PLAT.H); }
+        else platformDeath = o;                     // hit the side of the train
+      }
+    }
+    if (!onAnyPlatform) player._mounted = false;
+    player.groundY = groundH;
+    if (platformDeath) return platformDeath;
+
+    // obstacles + pads + bombs
+    for (const o of this.active) {
+      if (o.lane !== player.laneIndex || o.type === 'platform') continue;
       const overlap = Math.abs(o.z) < (o.depth / 2 + PLAYER_HALF_DEPTH);
       if (!overlap) continue;
       if (o.type === 'pad') {
-        // launch once, only if you cross it on foot (not already airborne)
-        if (!o.used && !player.airborne && player.bottom < 0.35) {
-          o.used = true;
-          onPad && onPad(o.mesh.position.clone());
+        if (!o.used && !player.airborne && player.bottom < groundH + 0.35) {
+          o.used = true; onPad && onPad(o.mesh.position.clone());
+        }
+        continue;
+      }
+      if (o.type === 'bomb') {
+        const top = o.mesh.userData.topY ?? 1.16;
+        if (player.bottom >= top - 0.05) {          // clearing / landing on top → safe
+          if (!o.used && player.airborne) { o.used = true; onBomb && onBomb(o.mesh.position.clone()); }
+        } else {
+          return o;                                  // walked straight into it → boom
         }
         continue;
       }

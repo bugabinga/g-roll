@@ -115,3 +115,66 @@ export class Blood {
 
   reset() { this.active = 0; this.points.visible = false; for (let i=0;i<this.max;i++) this.life[i]=0; }
 }
+
+// ---- fiery sparks (explosions / bounces) -----------------------------------
+export class Sparks {
+  constructor(scene) {
+    this.max = 220;
+    this.geo = new THREE.BufferGeometry();
+    this.pos = new Float32Array(this.max * 3);
+    this.vel = new Float32Array(this.max * 3);
+    this.life = new Float32Array(this.max);
+    this.col = new Float32Array(this.max * 3);
+    this.geo.setAttribute('position', new THREE.BufferAttribute(this.pos, 3));
+    this.geo.setAttribute('color', new THREE.BufferAttribute(this.col, 3));
+    const mat = new THREE.PointsMaterial({
+      size: 0.28, vertexColors: true, transparent: true, opacity: 1.0,
+      depthWrite: false, blending: THREE.AdditiveBlending,
+    });
+    this.points = new THREE.Points(this.geo, mat);
+    this.points.frustumCulled = false;
+    this.points.visible = false;
+    scene.add(this.points);
+    this.active = 0;
+    this._head = 0;
+  }
+
+  burst(x, y, z, power = 1) {
+    this.points.visible = true;
+    const n = Math.floor(60 * power);
+    for (let k = 0; k < n; k++) {
+      const i = this._head; this._head = (this._head + 1) % this.max;
+      this.pos[i*3] = x; this.pos[i*3+1] = y; this.pos[i*3+2] = z;
+      const a = Math.random() * Math.PI * 2, p = Math.random() * Math.PI;
+      const s = (3 + Math.random() * 10) * power;
+      this.vel[i*3]   = Math.sin(p)*Math.cos(a)*s;
+      this.vel[i*3+1] = Math.abs(Math.cos(p))*s + 2;
+      this.vel[i*3+2] = Math.sin(p)*Math.sin(a)*s;
+      this.life[i] = 0.4 + Math.random() * 0.6;
+      const hot = Math.random();
+      this.col[i*3]   = 1.0;
+      this.col[i*3+1] = 0.4 + hot * 0.55;    // yellow-orange
+      this.col[i*3+2] = hot * 0.25;
+    }
+    this.active = this.max;
+    this.geo.attributes.color.needsUpdate = true;
+  }
+
+  update(dt) {
+    if (this.active <= 0) { this.points.visible = false; return; }
+    let alive = 0;
+    for (let i = 0; i < this.max; i++) {
+      if (this.life[i] <= 0) continue;
+      this.life[i] -= dt;
+      this.vel[i*3+1] += -18 * dt;
+      this.pos[i*3]   += this.vel[i*3]   * dt;
+      this.pos[i*3+1] += this.vel[i*3+1] * dt;
+      this.pos[i*3+2] += this.vel[i*3+2] * dt;
+      if (this.life[i] > 0) alive++;
+    }
+    this.active = alive;
+    this.geo.attributes.position.needsUpdate = true;
+  }
+
+  reset() { this.active = 0; this.points.visible = false; for (let i=0;i<this.max;i++) this.life[i]=0; }
+}

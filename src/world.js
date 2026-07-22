@@ -24,6 +24,7 @@ export class World {
     this._camBaseY = 4.3;
 
     this._buildLights();
+    this._buildSky();
     this._buildStars();
     this._buildSegments();
     this._buildHorizon();
@@ -127,6 +128,25 @@ export class World {
       this.segments.push(seg);
     }
     this._frontZ = -(COUNT - 1) * SEG; // z of the furthest segment edge
+  }
+
+  _buildSky() {
+    // A single big gradient dome — deep indigo overhead fading to an ember-lit
+    // horizon. One unlit mesh, no per-frame cost, big depth payoff.
+    const geo = new THREE.SphereGeometry(300, 24, 16);
+    const top = new THREE.Color(0x0a0a1c), mid = new THREE.Color(0x0d0d16), horizon = new THREE.Color(0x1c0a12);
+    const pos = geo.attributes.position;
+    const col = new Float32Array(pos.count * 3);
+    const c = new THREE.Color();
+    for (let i = 0; i < pos.count; i++) {
+      const h = THREE.MathUtils.clamp((pos.getY(i) / 300 + 0.15) / 1.15, 0, 1);
+      if (h < 0.4) c.copy(horizon).lerp(mid, h / 0.4);
+      else c.copy(mid).lerp(top, (h - 0.4) / 0.6);
+      col[i*3] = c.r; col[i*3+1] = c.g; col[i*3+2] = c.b;
+    }
+    geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    const sky = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false, depthWrite: false }));
+    this.scene.add(sky);
   }
 
   _buildStars() {

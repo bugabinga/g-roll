@@ -12,7 +12,7 @@ import { Audio } from './audio.js';
 import { World } from './world.js';
 import { Player } from './player.js';
 import { Spawner } from './spawner.js';
-import { Embers, Blood } from './particles.js';
+import { Embers, Blood, Sparks } from './particles.js';
 import { UI } from './ui.js';
 
 class Game {
@@ -31,6 +31,7 @@ class Game {
     this.player = new Player(this.world.scene);
     this.embers = new Embers(this.world.scene);
     this.blood = new Blood(this.world.scene);
+    this.sparks = new Sparks(this.world.scene);
     this.spawner = new Spawner(this.world.scene, {});
 
     this.input = new Input();
@@ -93,7 +94,7 @@ class Game {
 
     this.run = {
       settings: s, mult, elapsed: 0, speed: s.startSpeed,
-      distance: 0, score: 0, gems: 0, curses: active.slice(),
+      distance: 0, score: 0, bonus: 0, gems: 0, curses: active.slice(),
       dieTimer: 0,
       gemYield: 1,            // gems gained per rune — grows with each wound taken
       nextChoiceAt: 60,       // seconds of play until the next forced wound
@@ -103,6 +104,7 @@ class Game {
     this.player.reset();
     this.spawner.reset();
     this.blood.reset();
+    this.sparks.reset();
     this.input.clear();
     this.input.enabled = true;
 
@@ -152,7 +154,11 @@ class Game {
     this.input.enabled = false;
     const p = this.player.group.position;
     this.blood.burst(p.x, p.y + 1.0, p.z);
-    this.world.addShake(CONFIG.cameraShakeDeath);
+    if (cause && cause.type === 'bomb') {
+      this.sparks.burst(p.x, p.y + 0.8, p.z, 1.6);   // fiery blast
+      this.audio.explosion();
+    }
+    this.world.addShake(cause && cause.type === 'bomb' ? 1.3 : CONFIG.cameraShakeDeath);
     this.audio.death();
     this.audio.stopDrone();
     // banking happens once, at the transition to the death screen
@@ -202,7 +208,7 @@ class Game {
     r.elapsed += dt;
     r.speed = Math.min(r.settings.maxSpeed, r.settings.startSpeed + r.settings.accel * r.elapsed);
     r.distance += r.speed * dt * 0.5;                 // metres (0.5 = feel tuning)
-    r.score = r.distance * CONFIG.distanceToScore * r.mult;
+    r.score = r.distance * CONFIG.distanceToScore * r.mult + r.bonus;
 
     // input → intents
     this.input.update(dt);
@@ -217,6 +223,7 @@ class Game {
     this.spawner.update(dt, r.speed, this.player);
     this.embers.update(dt, r.speed, this.world.camera.position.z);
     this.blood.update(dt);
+    this.sparks.update(dt);
 
     // collisions
     const hit = this.spawner.collide(this.player,
@@ -229,12 +236,22 @@ class Game {
         this.player.launch();
         this.audio.jump();
         this.world.addShake(0.25);
+      },
+      (pos) => {                      // onBomb — landed on top of an explosive
+        r.bonus += 75 * r.mult;
+        if (this.player.vy < 0) this.player.vy = CONFIG.jumpVelocity * 0.6; // little bounce
+        this.audio.bombBounce();
+        this.sparks.burst(pos.x, pos.y + 0.6, pos.z, 0.6);
+        this.world.addShake(0.2);
       });
     if (hit) { this.die(hit); return; }
 
-    // heartbeat quickens with speed
+    // heartbeat quickens with speed; music escalates with time survived
     const speedPct = (r.speed - r.settings.startSpeed) / (r.settings.maxSpeed - r.settings.startSpeed);
-    this.audio.updateHeart(dt, THREE.MathUtils.clamp(speedPct, 0, 1));
+    const clampedSpeed = THREE.MathUtils.clamp(speedPct, 0, 1);
+    this.audio.updateHeart(dt, clampedSpeed);
+    const musicIntensity = Math.max(Math.min(1, r.elapsed / 90), clampedSpeed * 0.75);
+    this.audio.updateMusic(dt, musicIntensity);
 
     this.ui.updateHUD({
       score: r.score, gems: r.gems, mult: r.mult,
@@ -255,6 +272,7 @@ class Game {
     this.spawner.update(dt * slow, r.speed, this.player);
     this.embers.update(dt, r.speed * slow, this.world.camera.position.z);
     this.blood.update(dt);
+    this.sparks.update(dt);
     if (r.dieTimer <= 0) this.finishRun();
   }
 
