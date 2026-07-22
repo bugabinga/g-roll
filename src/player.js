@@ -21,6 +21,7 @@ export class Player {
     this.airborne = false;
     this.rolling = false;
     this.rollTimer = 0;
+    this.rollCooldown = 0;
     this._laneT = 0;
     this._laneFrom = LANES[1];
     this._runCycle = 0;
@@ -149,6 +150,9 @@ export class Player {
 
   roll() {
     if (!this.alive) return;
+    // can't chain rolls: must finish the current one and stand briefly first.
+    // (blocks holding/spamming "down" to slide under everything forever)
+    if (this.rolling || this.rollCooldown > 0) return false;
     // a roll can be initiated on the ground; in the air it slams you down fast
     if (this.airborne) { this.vy = -CONFIG.jumpVelocity * 1.4; }
     this.rolling = true;
@@ -183,10 +187,12 @@ export class Player {
       this._coyote = Math.max(0, this._coyote - dt);
     }
 
-    // roll timer
+    // roll timer + cooldown (forces a standing gap between rolls)
     if (this.rolling) {
       this.rollTimer -= dt;
-      if (this.rollTimer <= 0) { this.rolling = false; }
+      if (this.rollTimer <= 0) { this.rolling = false; this.rollCooldown = CONFIG.rollCooldown; }
+    } else if (this.rollCooldown > 0) {
+      this.rollCooldown = Math.max(0, this.rollCooldown - dt);
     }
 
     this._animate(dt);
@@ -249,7 +255,7 @@ export class Player {
     this.x = this.targetX = this._laneFrom = LANES[1];
     this.y = this.vy = 0;
     this.groundY = 0;
-    this.airborne = false; this.rolling = false; this.rollTimer = 0;
+    this.airborne = false; this.rolling = false; this.rollTimer = 0; this.rollCooldown = 0;
     this._laneT = 1; this._coyote = 0; this.alive = true;
     this.group.visible = true;
     this.group.scale.set(1, 1, 1);

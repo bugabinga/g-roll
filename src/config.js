@@ -15,6 +15,7 @@ export const CONFIG = {
   gravity: -58,            // jump gravity
   jumpVelocity: 18.5,      // initial jump impulse
   rollTime: 0.62,          // seconds spent in a dodge-roll (low profile)
+  rollCooldown: 0.3,       // forced stand time after a roll — no infinite sliding
 
   // --- world --------------------------------------------------------------
   segmentLength: 20,       // length of one recycled floor segment
