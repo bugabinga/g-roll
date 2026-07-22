@@ -25,7 +25,7 @@ class Game {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, mobile ? 1.5 : 2));
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.5;
+    this.renderer.toneMappingExposure = 1.72;
 
     this.world = new World();
     this.player = new Player(this.world.scene);
@@ -167,11 +167,17 @@ class Game {
     this.blood.update(dt);
 
     // collisions
-    const hit = this.spawner.collide(this.player, (pos) => {
-      r.gems += 1;
-      this.audio.gem();
-      this.ui.flashGem();
-    });
+    const hit = this.spawner.collide(this.player,
+      (pos) => {                      // onGem
+        r.gems += 1;
+        this.audio.gem();
+        this.ui.flashGem();
+      },
+      (pos) => {                      // onPad — springboard launch
+        this.player.launch();
+        this.audio.jump();
+        this.world.addShake(0.25);
+      });
     if (hit) { this.die(hit); return; }
 
     // heartbeat quickens with speed

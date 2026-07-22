@@ -40,16 +40,45 @@ function makeLow() {          // bone spikes / tombstone — JUMP
   return g;
 }
 
-function makeHigh() {         // hanging cage / overhang — ROLL
+function makeHigh() {         // overhead gate with hanging teeth — ROLL UNDER
   const g = new THREE.Group();
-  const beam = new THREE.Mesh(new THREE.BoxGeometry(2.0, 1.8, 0.5), MATS.darkStone);
-  beam.position.y = HIGH_BOT + 1.0; g.add(beam);
-  // hanging chains + cage with a corpse
-  const cage = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 1.2, 6, 1, true), MATS.iron);
-  cage.position.y = HIGH_BOT + 0.4; g.add(cage);
-  const body = new THREE.Mesh(new THREE.SphereGeometry(0.28, 6, 6), MATS.flesh);
-  body.position.y = HIGH_BOT + 0.3; g.add(body);
+  // side posts frame the opening so it clearly reads as a gate
+  for (const sx of [-1, 1]) {
+    const post = new THREE.Mesh(new THREE.BoxGeometry(0.24, 3.4, 0.34), MATS.stone);
+    post.position.set(sx * 0.98, 1.7, 0); g.add(post);
+  }
+  // heavy lintel: the low ceiling you must duck beneath (bottom at HIGH_BOT)
+  const lintel = new THREE.Mesh(new THREE.BoxGeometry(2.3, 1.8, 0.62), MATS.darkStone);
+  lintel.position.y = HIGH_BOT + 0.9; g.add(lintel);
+  // a warning band on the underside so the gap reads at speed
+  const band = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.08, 0.66),
+    new THREE.MeshStandardMaterial({ color: 0x3a0000, emissive: 0xff2a2a, emissiveIntensity: 1.2, roughness: 0.5 }));
+  band.position.y = HIGH_BOT + 0.02; g.add(band);
+  // hanging teeth pointing down — "do not stand"
+  for (let i = -2; i <= 2; i++) {
+    const tooth = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.42, 5), MATS.bone);
+    tooth.position.set(i * 0.42, HIGH_BOT + 0.15, 0.12); tooth.rotation.x = Math.PI; g.add(tooth);
+  }
   g.userData.type = 'high'; g.userData.depth = 0.9;
+  return g;
+}
+
+function makePad() {          // springboard rune — JUMP PAD (launches you up)
+  const g = new THREE.Group();
+  const glow = new THREE.MeshBasicMaterial({ color: 0x39ff9a });
+  const glowDim = new THREE.MeshStandardMaterial({ color: 0x0a3a24, emissive: 0x28e07a, emissiveIntensity: 1.6, roughness: 0.4 });
+  // low ramp plate flush with the floor
+  const plate = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.18, 1.9), glowDim);
+  plate.position.y = 0.09; g.add(plate);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.7, 0.08, 6, 16), glow);
+  ring.rotation.x = Math.PI / 2; ring.position.y = 0.2; g.add(ring);
+  // upward chevrons that say "leap here"
+  for (let i = 0; i < 3; i++) {
+    const chev = new THREE.Mesh(new THREE.ConeGeometry(0.24, 0.3, 4), glow);
+    chev.position.set(0, 0.24, 0.5 - i * 0.5); g.add(chev);
+  }
+  g.userData.type = 'pad'; g.userData.depth = 1.9;
+  g.userData.spin = ring;
   return g;
 }
 
@@ -97,7 +126,7 @@ function makeBeast() {        // charging horror — the "train". CHANGE LANE
   return g;
 }
 
-const FACTORY = { low: makeLow, high: makeHigh, block: makeBlock, gap: makeGap, beast: makeBeast };
+const FACTORY = { low: makeLow, high: makeHigh, block: makeBlock, gap: makeGap, beast: makeBeast, pad: makePad };
 
 function makeGem() {
   // A faceted rune. The bright core (unlit MeshBasic) + a translucent standard
@@ -149,7 +178,7 @@ const ROWS = {
 export class Spawner {
   constructor(scene, opts = {}) {
     this.scene = scene;
-    this.pools = { low: [], high: [], block: [], gap: [], beast: [] };
+    this.pools = { low: [], high: [], block: [], gap: [], beast: [], pad: [] };
     this.active = [];       // obstacles
     this.gems = [];
     this.gemPool = [];
@@ -164,6 +193,7 @@ export class Spawner {
     this.gems.length = 0;
     this.spawnAcc = 30;     // distance travelled until the next row spawns
     this.rowCount = 0;
+    this._padReserve = null; // keeps a lane clear + gemmed after a jump pad
     this._t = 0;
   }
 
@@ -220,6 +250,8 @@ export class Spawner {
       o.mesh.position.z = o.z;
       if (o.type === 'beast') {
         o.mesh.position.y = Math.sin(this._t * 8 + i) * 0.06; // lurching gait
+      } else if (o.type === 'pad' && o.mesh.userData.spin) {
+        o.mesh.userData.spin.rotation.z += dt * 3;            // spinning rune ring
       }
       if (o.z > CONFIG.despawnBehind) {
         this._release(o);
@@ -253,6 +285,18 @@ export class Spawner {
     this.rowCount++;
     this._lastRowZ = z;
 
+    // --- jump-pad breather row: a springboard in one lane, rest clear. The next
+    //     couple of rows keep that lane open (+ gems) so the launch is rewarded
+    //     and never flings you into an unavoidable gate.
+    if (this.rowCount > 4 && !this._padReserve && Math.random() < 0.10) {
+      const lane = (Math.random() * 3) | 0;
+      const mesh = this._acquire('pad');
+      mesh.position.set(LANES[lane], 0, z);
+      this.active.push({ type: 'pad', lane, z, depth: mesh.userData.depth, mesh });
+      this._padReserve = { lane, rows: 2 };
+      return;
+    }
+
     // first few rows are gentle warmups
     let pattern;
     if (this.rowCount <= 3) {
@@ -262,6 +306,12 @@ export class Spawner {
       pattern = this._pickRow(diff);
     }
 
+    // honour a pad reservation: keep the landing lane clear for the leap arc
+    if (this._padReserve) {
+      pattern = pattern.slice();
+      pattern[this._padReserve.lane] = null;
+    }
+
     const safeLanes = [];
     for (let lane = 0; lane < 3; lane++) {
       const type = pattern[lane];
@@ -269,6 +319,12 @@ export class Spawner {
       const mesh = this._acquire(type);
       mesh.position.set(LANES[lane], 0, z);
       this.active.push({ type, lane, z, depth: mesh.userData.depth, mesh });
+    }
+
+    // gem arc in the reserved lane so the pad launch scoops up runes mid-air
+    if (this._padReserve) {
+      this._spawnGemLine(this._padReserve.lane, z, true);
+      if (--this._padReserve.rows <= 0) this._padReserve = null;
     }
 
     // gems: reward the clean line. Place an arc in a safe (or jumpable) lane.
@@ -305,7 +361,7 @@ export class Spawner {
   //  Collision — returns 'dead' if the player struck something fatal.
   //  Calls onGem for each rune collected this frame.
   // -------------------------------------------------------------------------
-  collide(player, onGem) {
+  collide(player, onGem, onPad) {
     // gems first (generous)
     for (let i = this.gems.length - 1; i >= 0; i--) {
       const g = this.gems[i];
@@ -319,11 +375,19 @@ export class Spawner {
       }
     }
 
-    // obstacles
+    // obstacles + jump pads
     for (const o of this.active) {
       if (o.lane !== player.laneIndex) continue;
       const overlap = Math.abs(o.z) < (o.depth / 2 + PLAYER_HALF_DEPTH);
       if (!overlap) continue;
+      if (o.type === 'pad') {
+        // launch once, only if you cross it on foot (not already airborne)
+        if (!o.used && !player.airborne && player.bottom < 0.35) {
+          o.used = true;
+          onPad && onPad(o.mesh.position.clone());
+        }
+        continue;
+      }
       if (this._fatal(o, player)) return o;
     }
     return null;

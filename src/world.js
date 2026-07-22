@@ -15,7 +15,7 @@ export class World {
   constructor() {
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x05060a);
-    this.fog = new THREE.FogExp2(0x0a0a12, 0.019);
+    this.fog = new THREE.FogExp2(0x0d0d16, 0.015);
     this.scene.fog = this.fog;
 
     this.camera = new THREE.PerspectiveCamera(62, 1, 0.1, 400);
@@ -36,8 +36,8 @@ export class World {
   _buildLights() {
     // Cheap, uniform fill (ambient + hemisphere cost almost nothing and brighten
     // the whole scene) does the heavy lifting so we need very few punctual lights.
-    this.scene.add(new THREE.AmbientLight(0x4a5878, 1.15));
-    const hemi = new THREE.HemisphereLight(0x6b7bb0, 0x3a1414, 1.0);
+    this.scene.add(new THREE.AmbientLight(0x586688, 1.45));
+    const hemi = new THREE.HemisphereLight(0x8090c0, 0x4a1c1c, 1.25);
     this.scene.add(hemi);
 
     const moon = new THREE.DirectionalLight(0x9fb0e0, 0.7);
@@ -68,9 +68,9 @@ export class World {
 
   _buildSegments() {
     this.segments = [];
-    const floorMat = new THREE.MeshStandardMaterial({ color: 0x0d0e12, roughness: 0.98, metalness: 0.02 });
-    const stoneMat = new THREE.MeshStandardMaterial({ color: 0x171921, roughness: 0.95 });
-    const pillarMat = new THREE.MeshStandardMaterial({ color: 0x1b1d26, roughness: 0.9 });
+    const floorMat = new THREE.MeshStandardMaterial({ color: 0x1a1c24, roughness: 0.96, metalness: 0.03 });
+    const stoneMat = new THREE.MeshStandardMaterial({ color: 0x242733, roughness: 0.92 });
+    const pillarMat = new THREE.MeshStandardMaterial({ color: 0x2a2d38, roughness: 0.88 });
     const runeMat = new THREE.MeshStandardMaterial({ color: 0x220505, emissive: 0x8a1010, emissiveIntensity: 0.7, roughness: 0.6 });
 
     for (let i = 0; i < COUNT; i++) {

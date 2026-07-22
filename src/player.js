@@ -135,6 +135,17 @@ export class Player {
     return true;
   }
 
+  launch() {
+    // hurled skyward by a jump pad — bigger than a normal leap, ignores grounding
+    if (!this.alive) return;
+    this.vy = CONFIG.jumpVelocity * 1.45;
+    this.airborne = true;
+    this._coyote = 0;
+    this.rolling = false;
+    this.rollTimer = 0;
+    return true;
+  }
+
   roll() {
     if (!this.alive) return;
     // a roll can be initiated on the ground; in the air it slams you down fast
