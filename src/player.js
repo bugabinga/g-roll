@@ -187,10 +187,14 @@ export class Player {
       this._coyote = Math.max(0, this._coyote - dt);
     }
 
-    // roll timer + cooldown (forces a standing gap between rolls)
+    // roll timer + cooldown (forces a standing gap between rolls).
+    // The timer is FROZEN while airborne: a mid-air roll stays a tucked dive and
+    // the full ground-roll plays out once you actually land.
     if (this.rolling) {
-      this.rollTimer -= dt;
-      if (this.rollTimer <= 0) { this.rolling = false; this.rollCooldown = CONFIG.rollCooldown; }
+      if (!this.airborne) {
+        this.rollTimer -= dt;
+        if (this.rollTimer <= 0) { this.rolling = false; this.rollCooldown = CONFIG.rollCooldown; }
+      }
     } else if (this.rollCooldown > 0) {
       this.rollCooldown = Math.max(0, this.rollCooldown - dt);
     }
