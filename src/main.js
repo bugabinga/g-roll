@@ -177,17 +177,24 @@ class Game {
 
   // -- the loop --------------------------------------------------------------
   _frame(now) {
+    // Schedule the next frame FIRST so a thrown error can never kill the loop
+    // (a silent freeze is far worse than one dropped frame).
+    requestAnimationFrame((t) => this._frame(t));
+
     let dt = (now - this._last) / 1000;
     this._last = now;
     if (dt > 0.05) dt = 0.05;      // clamp after tab-switch / stutter
 
-    if (this.state === 'playing') this._updatePlay(dt);
-    else if (this.state === 'dying') this._updateDying(dt);
-    else if (this.state === 'choosing') { /* frozen: render the paused scene only */ }
-    else this._updateIdle(dt);
+    try {
+      if (this.state === 'playing') this._updatePlay(dt);
+      else if (this.state === 'dying') this._updateDying(dt);
+      else if (this.state === 'choosing') { /* frozen: render the paused scene only */ }
+      else this._updateIdle(dt);
 
-    this.renderer.render(this.world.scene, this.world.camera);
-    requestAnimationFrame((t) => this._frame(t));
+      this.renderer.render(this.world.scene, this.world.camera);
+    } catch (err) {
+      console.error('[g-roll] frame error:', err);
+    }
   }
 
   _updatePlay(dt) {

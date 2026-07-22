@@ -189,7 +189,7 @@ export class Spawner {
   reset() {
     for (const o of this.active) this._release(o);
     this.active.length = 0;
-    for (const g of this.gems) { g.mesh.visible = false; this.gemPool.push(g); }
+    for (const g of this.gems) { g.mesh.visible = false; this.gemPool.push(g.mesh); }
     this.gems.length = 0;
     this.spawnAcc = 30;     // distance travelled until the next row spawns
     this.rowCount = 0;
