@@ -3,3 +3,4 @@ package-lock.json
 scratch_*
 *.log
 .DS_Store
+dist/artifact.html
