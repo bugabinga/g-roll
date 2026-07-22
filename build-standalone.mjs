@@ -30,6 +30,7 @@ const css = await read('./css/style.css');
 const body = `
 <canvas id="game"></canvas>
 <div id="vignette"></div>
+<div id="death-flash"><div class="df-text">YOU DIED</div></div>
 
 <div id="hud">
   <div class="hud-top">

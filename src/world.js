@@ -24,6 +24,7 @@ export class World {
     this._camBaseY = 4.3;
 
     this._buildLights();
+    this._buildStars();
     this._buildSegments();
     this._buildHorizon();
 
@@ -128,6 +129,34 @@ export class World {
     this._frontZ = -(COUNT - 1) * SEG; // z of the furthest segment edge
   }
 
+  _buildStars() {
+    // A static night sky filling the open dark above the corridor. The camera is
+    // fixed in z (the world scrolls beneath it), so the stars never need to move.
+    const count = 520;
+    const geo = new THREE.BufferGeometry();
+    const pos = new Float32Array(count * 3);
+    const col = new Float32Array(count * 3);
+    for (let i = 0; i < count; i++) {
+      pos[i*3+0] = (Math.random() - 0.5) * 240;
+      pos[i*3+1] = 8 + Math.random() * 120;               // above the walls
+      pos[i*3+2] = -20 - Math.random() * 300;             // ahead, into the dark
+      const t = Math.random();
+      if (t < 0.72)      { col[i*3]=0.85; col[i*3+1]=0.88; col[i*3+2]=1.0; } // white-blue
+      else if (t < 0.9)  { col[i*3]=1.0;  col[i*3+1]=0.95; col[i*3+2]=0.8; } // warm
+      else               { col[i*3]=1.0;  col[i*3+1]=0.55; col[i*3+2]=0.3; } // ember-red
+    }
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    const mat = new THREE.PointsMaterial({
+      size: 0.7, vertexColors: true, transparent: true, opacity: 0.9,
+      depthWrite: false, sizeAttenuation: true, blending: THREE.AdditiveBlending,
+      fog: false,
+    });
+    this.stars = new THREE.Points(geo, mat);
+    this.stars.frustumCulled = false;
+    this.scene.add(this.stars);
+  }
+
   _buildHorizon() {
     // a dead god-tree far ahead — the unreachable landmark (Elden Ring nod)
     const grp = new THREE.Group();
@@ -184,6 +213,9 @@ export class World {
 
     // keep the horizon landmark hovering far ahead
     this.horizon.position.z = this.camera.position.z - 150;
+
+    // gentle star twinkle (one cheap global shimmer)
+    if (this.stars) this.stars.material.opacity = 0.75 + Math.sin(this._t * 2.2) * 0.15;
 
     // camera shake / vertigo
     let ox = 0, oy = 0, oz = 0, roll = 0;

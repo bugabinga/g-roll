@@ -58,6 +58,10 @@ class Game {
   // -- run lifecycle ---------------------------------------------------------
   beginRun() {
     this.audio.resume();
+    // clear any leftover death FX
+    this.canvas.classList.remove('dead-fx');
+    const flash = document.getElementById('death-flash');
+    if (flash) flash.classList.remove('show');
 
     // Resolve curses & pay the toll in gems.
     const wanted = Save.activeCurses;
@@ -107,7 +111,12 @@ class Game {
   die(cause) {
     if (this.state !== 'playing') return;
     this.state = 'dying';
-    this.run.dieTimer = 1.7;
+    this.run.dieTimer = 2.2;
+
+    // GTA-style death moment: desaturate the world and slam up "YOU DIED"
+    this.canvas.classList.add('dead-fx');
+    const flash = document.getElementById('death-flash');
+    if (flash) { flash.classList.remove('show'); void flash.offsetWidth; flash.classList.add('show'); }
     this.player.alive = false;
     this.input.enabled = false;
     const p = this.player.group.position;
@@ -120,6 +129,10 @@ class Game {
 
   finishRun() {
     const r = this.run;
+    // clear the death FX and hand off to the stats screen
+    this.canvas.classList.remove('dead-fx');
+    const flash = document.getElementById('death-flash');
+    if (flash) flash.classList.remove('show');
     Save.addGems(r.gems);
     const { newBest } = Save.recordRun(Math.floor(r.score), r.distance);
     if (newBest && r.score > 0) this.audio.toll();
