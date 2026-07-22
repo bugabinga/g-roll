@@ -89,11 +89,10 @@ function makeBeast() {        // charging horror — the "train". CHANGE LANE
   const maw = new THREE.Mesh(new THREE.ConeGeometry(0.9, 1.4, 7), MATS.flesh);
   maw.rotation.x = -Math.PI / 2; maw.position.set(0, 1.0, 2.6); g.add(maw);
   for (const sx of [-0.35, 0.35]) {
-    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.14, 6, 6), MATS.eye);
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.17, 8, 8), MATS.eye);
     eye.position.set(sx, 1.5, 2.3); g.add(eye);
   }
-  const glow = new THREE.PointLight(0xff2200, 5, 9, 2);
-  glow.position.set(0, 1.4, 2.4); g.add(glow);
+  // no PointLight — unlit MeshBasicMaterial eyes read as glowing for free
   g.userData.type = 'beast'; g.userData.depth = 5.2;
   return g;
 }
@@ -101,15 +100,24 @@ function makeBeast() {        // charging horror — the "train". CHANGE LANE
 const FACTORY = { low: makeLow, high: makeHigh, block: makeBlock, gap: makeGap, beast: makeBeast };
 
 function makeGem() {
-  const geo = new THREE.OctahedronGeometry(0.34, 0);
-  const mat = new THREE.MeshStandardMaterial({
-    color: 0x8a0d0d, emissive: 0xff1a1a, emissiveIntensity: 1.6,
-    roughness: 0.15, metalness: 0.3, transparent: true, opacity: 0.95,
-  });
-  const m = new THREE.Mesh(geo, mat);
-  const light = new THREE.PointLight(0xff2a2a, 1.6, 3.5, 2);
-  m.add(light);
-  return m;
+  // A faceted rune. The bright core (unlit MeshBasic) + a translucent standard
+  // shell make it glow without needing a per-gem PointLight (huge perf win).
+  const g = new THREE.Group();
+  const core = new THREE.Mesh(
+    new THREE.OctahedronGeometry(0.24, 0),
+    new THREE.MeshBasicMaterial({ color: 0xff4d4d })
+  );
+  g.add(core);
+  const shell = new THREE.Mesh(
+    new THREE.OctahedronGeometry(0.38, 0),
+    new THREE.MeshStandardMaterial({
+      color: 0xb31111, emissive: 0xff1a1a, emissiveIntensity: 2.2,
+      roughness: 0.1, metalness: 0.4, transparent: true, opacity: 0.5,
+    })
+  );
+  g.add(shell);
+  g.userData.core = core;
+  return g;
 }
 
 // curated, always-solvable row patterns  (n=null, otherwise a type key)

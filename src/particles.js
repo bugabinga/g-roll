@@ -8,7 +8,7 @@ import * as THREE from '../vendor/three.module.js';
 // ---- floating ash & embers -------------------------------------------------
 export class Embers {
   constructor(scene) {
-    this.count = 260;
+    this.count = 170;
     const geo = new THREE.BufferGeometry();
     const pos = new Float32Array(this.count * 3);
     const spd = new Float32Array(this.count);
@@ -57,7 +57,7 @@ export class Embers {
 // ---- blood burst -----------------------------------------------------------
 export class Blood {
   constructor(scene) {
-    this.max = 340;
+    this.max = 240;
     this.geo = new THREE.BufferGeometry();
     this.pos = new Float32Array(this.max * 3);
     this.vel = new Float32Array(this.max * 3);

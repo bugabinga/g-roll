@@ -15,7 +15,7 @@ export class World {
   constructor() {
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x05060a);
-    this.fog = new THREE.FogExp2(0x07070c, 0.028);
+    this.fog = new THREE.FogExp2(0x0a0a12, 0.019);
     this.scene.fog = this.fog;
 
     this.camera = new THREE.PerspectiveCamera(62, 1, 0.1, 400);
@@ -34,26 +34,36 @@ export class World {
   }
 
   _buildLights() {
-    this.scene.add(new THREE.AmbientLight(0x2b3750, 0.7));
-    const moon = new THREE.DirectionalLight(0x8899cc, 0.4);
+    // Cheap, uniform fill (ambient + hemisphere cost almost nothing and brighten
+    // the whole scene) does the heavy lifting so we need very few punctual lights.
+    this.scene.add(new THREE.AmbientLight(0x4a5878, 1.15));
+    const hemi = new THREE.HemisphereLight(0x6b7bb0, 0x3a1414, 1.0);
+    this.scene.add(hemi);
+
+    const moon = new THREE.DirectionalLight(0x9fb0e0, 0.7);
     moon.position.set(-8, 20, -6);
     this.scene.add(moon);
-    // a cold key light from ahead to rim the obstacles
-    const key = new THREE.DirectionalLight(0xff7733, 0.3);
-    key.position.set(2, 8, -30);
+    const key = new THREE.DirectionalLight(0xff8a44, 0.6);
+    key.position.set(2, 8, -24);
     this.scene.add(key);
 
-    // warm spotlight fixed over the action zone — the world scrolls beneath it,
+    // Warm spotlight fixed over the action zone — the world scrolls beneath it,
     // so the player and the obstacles about to reach them stay readable.
-    const stage = new THREE.SpotLight(0xffb066, 60, 26, Math.PI * 0.32, 0.5, 1.4);
-    stage.position.set(0, 9, 6);
-    stage.target.position.set(0, 1, -6);
+    const stage = new THREE.SpotLight(0xffc27a, 120, 34, Math.PI * 0.34, 0.5, 1.2);
+    stage.position.set(0, 10, 7);
+    stage.target.position.set(0, 1, -8);
     this.scene.add(stage);
     this.scene.add(stage.target);
-    // a soft fill so near-field obstacles read even between torches
-    const fill = new THREE.PointLight(0xffd9a8, 8, 20, 2);
-    fill.position.set(0, 5, 2);
-    this.scene.add(fill);
+
+    // A couple of flickering torch lights fixed near the action for warmth +
+    // life. Fixed (not per-segment) keeps the punctual-light count tiny.
+    this.torchLights = [];
+    for (const sx of [-1, 1]) {
+      const t = new THREE.PointLight(0xff7a2a, 22, 22, 2);
+      t.position.set(sx * 4.2, 3.4, -2);
+      this.scene.add(t);
+      this.torchLights.push(t);
+    }
   }
 
   _buildSegments() {
@@ -99,6 +109,9 @@ export class World {
         seg.userData[`flame${sx}`] = flame;
       }
 
+      // NOTE: no per-segment PointLight — those are the main mobile perf killer.
+      // The fixed action-zone torches in _buildLights supply the flicker instead.
+
       // arch overhead every other segment
       if (i % 2 === 0) {
         const arch = new THREE.Mesh(new THREE.TorusGeometry(HALL_W/2 + 0.7, 0.28, 6, 12, Math.PI), pillarMat);
@@ -107,12 +120,6 @@ export class World {
         arch.scale.y = 0.8;
         seg.add(arch);
       }
-
-      // one torch light per segment (perf-friendly)
-      const torch = new THREE.PointLight(0xff7a2a, 6.5, 16, 2);
-      torch.position.set((i % 2 ? -1 : 1) * (HALL_W/2 + 0.1), 3.2, 0);
-      seg.add(torch);
-      seg.userData.torch = torch;
 
       seg.position.z = -i * SEG;
       this.scene.add(seg);
@@ -129,7 +136,7 @@ export class World {
     trunk.position.y = 22;
     grp.add(trunk);
     const glowMat = new THREE.MeshBasicMaterial({ color: 0xffd27a, transparent: true, opacity: 0.5 });
-    for (let i = 0; i < 34; i++) {
+    for (let i = 0; i < 16; i++) {
       const b = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.9, 18 + Math.random()*20, 5), barkMat);
       const a = Math.random() * Math.PI * 2;
       b.position.set(Math.cos(a)*10, 42 + Math.random()*22, Math.sin(a)*6);
@@ -162,12 +169,16 @@ export class World {
       if (seg.position.z > this.camera.position.z + SEG * 0.6) {
         seg.position.z -= COUNT * SEG;
       }
-      // flicker torch
-      const torch = seg.userData.torch;
-      if (torch) torch.intensity = 5.5 + Math.sin(this._t * 9 + seg.position.z) * 1.6 + Math.random() * 1.2;
       for (const sx of [-1, 1]) {
         const fl = seg.userData[`flame${sx}`];
         if (fl) fl.scale.setScalar(0.85 + Math.random() * 0.4);
+      }
+    }
+
+    // flicker the fixed action-zone torch lights
+    if (this.torchLights) {
+      for (let i = 0; i < this.torchLights.length; i++) {
+        this.torchLights[i].intensity = 18 + Math.sin(this._t * 11 + i * 2) * 5 + Math.random() * 4;
       }
     }
 
