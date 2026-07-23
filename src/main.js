@@ -143,7 +143,7 @@ class Game {
       nextChoiceAt: 40,       // seconds of play until the next forced wound
       debuffs: [],            // ids of wounds taken this run
       jumps: 0, rolls: 0,     // action tallies for daily quests
-      dread: 0.12,            // how close the Collapse is (0..1, cinematic)
+      dread: 0.55,            // the chase is ON at the start; a clean runner outruns it
       loreAt: 0,              // index of the next collapse lore beat
     };
 
@@ -236,7 +236,7 @@ class Game {
     d.apply(this);
     this.run.gemYield += d.gemBonus;
     this.run.debuffs.push(d.id);
-    this.run.dread = Math.min(0.9, this.run.dread + 0.16);   // you paused — the cave-in gained
+    this.run.dread = Math.min(0.85, this.run.dread + 0.4);   // you paused — the cave-in nearly caught you
     this.collapse.addLunge(1);
     this.run.nextChoiceAt += 40;
     this.ui.hideChoice();
@@ -379,11 +379,12 @@ class Game {
       });
     if (hit) { this.die(hit); return; }
 
-    // -- THE COLLAPSE: relentless creep, calmed by clean dodging, surged by risk.
-    //    Cinematic only — it never kills you; crashing into a hazard does.
-    r.dread = Math.min(0.9, r.dread + dt * 0.013);
-    if (this.spawner.passedClean) r.dread = Math.max(0, r.dread - this.spawner.passedClean * 0.02);
-    if (this.spawner.nearMiss) this.collapse.addLunge(0.4 * this.spawner.nearMiss);   // it snaps at each close shave
+    // -- THE COLLAPSE: on at the start, then you OUTRUN it — dread steadily bleeds
+    //    off (faster the cleaner you run) so it recedes and fades, out of the way
+    //    of the core game, surging back only on a mistake. Cinematic only.
+    r.dread = Math.max(0, r.dread - dt * 0.05);
+    if (this.spawner.passedClean) r.dread = Math.max(0, r.dread - this.spawner.passedClean * 0.012);
+    if (this.spawner.nearMiss) this.collapse.addLunge(0.28 * this.spawner.nearMiss);   // a brief snap at each close shave
     this.collapse.setProximity(r.dread);
     const near = this.collapse.update(dt);
     this.ui.setCollapse(near);
