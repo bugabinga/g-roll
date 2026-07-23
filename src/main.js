@@ -43,6 +43,7 @@ class Game {
       onAltar: () => { this.state = 'altar'; },
       onShop: () => { this.state = 'shop'; },
       onSettings: () => { this.state = 'settings'; },
+      onGround: (t) => { this.world.setGround(t); },   // live preview in settings
       onMenu: () => { this.state = 'menu'; },
       onMute: () => { const m = Save.toggleMute(); this.audio.setMuted(m); return m; },
     });
@@ -58,6 +59,7 @@ class Game {
     this._resize();
     window.addEventListener('resize', () => this._resize());
 
+    this.world.setGround(Save.ground);
     this.player.hide();
     this.ui.showMenu();
 
@@ -90,6 +92,7 @@ class Game {
     // atmosphere mode chosen in Settings: day / night / bloodmoon
     const mode = Save.mode;
     this.world.setMode(mode);
+    this.world.setGround(Save.ground);
     if (mode === 'day') s.fogDensity *= 0.72;
     if (mode === 'bloodmoon') { s.startSpeed *= 2; s.maxSpeed *= 2; }   // 2x faster
     this._bloodmoon = (mode === 'bloodmoon');

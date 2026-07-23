@@ -14,6 +14,7 @@ const DEFAULT = {
   activeCurses: [], // curse ids toggled on for the next run (subset of unlocked)
   skins: [],        // character/skin ids bought in the Wardrobe (defaults are always owned)
   mode: 'night',    // atmosphere: 'night' | 'day' | 'bloodmoon'
+  ground: 'stone',  // floor skin: 'stone' | 'milkyway' | 'lava' | 'frost'
   muted: false,
 };
 
@@ -49,6 +50,8 @@ export const Save = {
   get muted() { return state.muted; },
   get mode() { return state.mode || 'night'; },
   setMode(m) { state.mode = m; persist(); },
+  get ground() { return state.ground || 'stone'; },
+  setGround(t) { state.ground = t; persist(); },
   get activeCurses() { return [...state.activeCurses]; },
   get unlockedCurses() { return [...state.unlocked]; },
   isUnlocked(id) { return state.unlocked.includes(id); },

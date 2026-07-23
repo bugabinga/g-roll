@@ -30,6 +30,7 @@ export class World {
     this._buildSegments();
     this._buildHorizon();
     this.setMode('night');
+    this.setGround('stone');
 
     this.speed = 0;
     this.shake = 0;
@@ -73,18 +74,20 @@ export class World {
 
   _buildSegments() {
     this.segments = [];
-    // wet flagstone: lower roughness + a little metalness so torch/emissive glints
-    const floorMat = new THREE.MeshStandardMaterial({ color: 0x1b1d27, roughness: 0.62, metalness: 0.38 });
+    // wet flagstone: lower roughness + a little metalness so torch/emissive glints.
+    // Kept as an instance ref so ground "skins" can re-texture it (see setGround).
+    this.floorMat = new THREE.MeshStandardMaterial({ color: 0x1b1d27, roughness: 0.62, metalness: 0.38 });
     const stoneMat = new THREE.MeshStandardMaterial({ color: 0x262a37, roughness: 0.85, metalness: 0.15 });
     const pillarMat = new THREE.MeshStandardMaterial({ color: 0x2c303c, roughness: 0.8, metalness: 0.2 });
     const runeMat = new THREE.MeshStandardMaterial({ color: 0x2a0606, emissive: 0xb01414, emissiveIntensity: 1.1, roughness: 0.5 });
     const statueMat = new THREE.MeshStandardMaterial({ color: 0x1c1f28, roughness: 0.9, metalness: 0.1 });
+    this.edgeMat = new THREE.MeshBasicMaterial({ color: 0xb01414 });   // glowing curb line (themed)
 
     for (let i = 0; i < COUNT; i++) {
       const seg = new THREE.Group();
 
       // floor slab
-      const floor = new THREE.Mesh(new THREE.BoxGeometry(HALL_W, 0.4, SEG), floorMat);
+      const floor = new THREE.Mesh(new THREE.BoxGeometry(HALL_W, 0.4, SEG), this.floorMat);
       floor.position.y = -0.2;
       floor.receiveShadow = true;
       seg.add(floor);
@@ -96,11 +99,17 @@ export class World {
         seg.add(line);
       }
 
-      // side gutters / walls
+      // sides: a LOW glowing curb instead of a tall blank wall — opens the view to
+      // the sky and the world beyond, and frames the lanes with a lit edge.
       for (const sx of [-1, 1]) {
-        const wall = new THREE.Mesh(new THREE.BoxGeometry(0.8, 3.2, SEG), stoneMat);
-        wall.position.set(sx * (HALL_W/2 + 0.4), 1.4, 0);
-        seg.add(wall);
+        const curb = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.5, SEG), stoneMat);
+        curb.position.set(sx * (HALL_W/2 + 0.05), 0.05, 0);
+        seg.add(curb);
+        const edge = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.06, SEG*0.99), this.edgeMat);
+        edge.position.set(sx * (HALL_W/2 + 0.05), 0.32, 0);
+        seg.add(edge);
+        const glow = glowSprite(0xb01414, 1.4); glow.position.set(sx * (HALL_W/2 + 0.05), 0.34, -SEG*0.25);
+        seg.add(glow); seg.userData[`edgeGlow${sx}`] = glow;
 
         // a pillar mid-segment
         const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.62, 6.2, 8), pillarMat);
@@ -241,6 +250,60 @@ export class World {
     this.key.color.setHex(blood ? 0xff3020 : 0xff8a44);
     this.key.intensity = day ? 0.25 : (blood ? 0.9 : 0.6);
     this.fog.color.setHex(day ? 0xa9bcd6 : (blood ? 0x2a0606 : 0x0d0d16));
+  }
+
+  // ---- ground "skins" -----------------------------------------------------
+  _groundTex(theme) {
+    this._gtc = this._gtc || {};
+    if (theme in this._gtc) return this._gtc[theme];
+    let tex = null;
+    if (theme !== 'stone') {
+      const c = document.createElement('canvas'); c.width = c.height = 256;
+      const x = c.getContext('2d');
+      if (theme === 'milkyway') {
+        x.fillStyle = '#05040f'; x.fillRect(0, 0, 256, 256);
+        // nebula band
+        const g = x.createLinearGradient(0, 256, 256, 0);
+        g.addColorStop(0, 'rgba(40,20,90,0)'); g.addColorStop(0.5, 'rgba(90,50,170,0.55)'); g.addColorStop(0.65, 'rgba(150,90,220,0.35)'); g.addColorStop(1, 'rgba(30,60,140,0)');
+        x.fillStyle = g; x.fillRect(0, 0, 256, 256);
+        for (let i = 0; i < 40; i++) { x.fillStyle = `rgba(${120+Math.random()*100|0},${80+Math.random()*80|0},${200},0.12)`; x.beginPath(); x.arc(Math.random()*256, Math.random()*256, 12+Math.random()*40, 0, 7); x.fill(); }
+        for (let i = 0; i < 420; i++) { const b = Math.random(); x.fillStyle = b > 0.9 ? '#bfe0ff' : (b > 0.6 ? '#ffffff' : 'rgba(200,210,255,0.7)'); const r = b > 0.9 ? 1.6 : 0.9; x.beginPath(); x.arc(Math.random()*256, Math.random()*256, r, 0, 7); x.fill(); }
+      } else if (theme === 'lava') {
+        x.fillStyle = '#0b0705'; x.fillRect(0, 0, 256, 256);
+        for (let i = 0; i < 26; i++) { x.strokeStyle = `rgba(255,${90+Math.random()*90|0},20,${0.5+Math.random()*0.4})`; x.lineWidth = 1 + Math.random()*2.5; x.beginPath(); let px = Math.random()*256, py = Math.random()*256; x.moveTo(px, py); for (let k = 0; k < 5; k++) { px += (Math.random()-0.5)*70; py += (Math.random()-0.5)*70; x.lineTo(px, py); } x.stroke(); }
+        for (let i = 0; i < 60; i++) { x.fillStyle = `rgba(255,${120+Math.random()*80|0},40,0.8)`; x.beginPath(); x.arc(Math.random()*256, Math.random()*256, Math.random()*1.8, 0, 7); x.fill(); }
+      } else if (theme === 'frost') {
+        x.fillStyle = '#0a1822'; x.fillRect(0, 0, 256, 256);
+        for (let i = 0; i < 30; i++) { x.strokeStyle = `rgba(${140+Math.random()*80|0},${220},255,${0.4+Math.random()*0.4})`; x.lineWidth = 1 + Math.random()*2; x.beginPath(); let px = Math.random()*256, py = Math.random()*256; x.moveTo(px, py); for (let k = 0; k < 4; k++) { px += (Math.random()-0.5)*60; py += (Math.random()-0.5)*60; x.lineTo(px, py); } x.stroke(); }
+        for (let i = 0; i < 120; i++) { x.fillStyle = 'rgba(200,240,255,0.6)'; x.beginPath(); x.arc(Math.random()*256, Math.random()*256, Math.random()*1.4, 0, 7); x.fill(); }
+      }
+      tex = new THREE.CanvasTexture(c);
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(1.5, SEG / (HALL_W / 2));
+    }
+    this._gtc[theme] = tex;
+    return tex;
+  }
+
+  setGround(theme) {
+    this.ground = theme;
+    const CFG = {
+      stone:    { color: 0x1b1d27, emissive: 0, rough: 0.62, metal: 0.38, edge: 0xb01414 },
+      milkyway: { color: 0x0a0820, emissive: 1.35, rough: 0.5, metal: 0.5, edge: 0x8a5aff },
+      lava:     { color: 0x1a0c06, emissive: 1.2, rough: 0.7, metal: 0.2, edge: 0xff6a1e },
+      frost:    { color: 0x11242e, emissive: 1.0, rough: 0.35, metal: 0.5, edge: 0x59d6ff },
+    };
+    const cfg = CFG[theme] || CFG.stone;
+    const tex = this._groundTex(theme);
+    const m = this.floorMat;
+    m.map = tex; m.emissiveMap = tex;
+    m.color.setHex(cfg.color);
+    m.emissive.setHex(tex ? 0xffffff : 0x000000);
+    m.emissiveIntensity = cfg.emissive;
+    m.roughness = cfg.rough; m.metalness = cfg.metal;
+    m.needsUpdate = true;
+    this.edgeMat.color.setHex(cfg.edge);
+    for (const seg of this.segments) for (const sx of [-1, 1]) { const gl = seg.userData[`edgeGlow${sx}`]; if (gl) gl.material.color.setHex(cfg.edge); }
   }
 
   _buildStars() {

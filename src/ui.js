@@ -72,8 +72,27 @@ export class UI {
     $('set-sound').textContent = Save.muted ? '♪ muted' : '♪ sound';
     $('set-sound').classList.toggle('off', Save.muted);
     this._renderModes();
+    this._renderGrounds();
     $('screen-settings').classList.add('show');
     this.h.onSettings && this.h.onSettings();
+  }
+
+  _renderGrounds() {
+    const GROUNDS = [
+      { id: 'stone', name: 'Cathedral Stone', desc: 'Wet flagstone, torch-lit. The old road.' },
+      { id: 'milkyway', name: 'The Milky Way', desc: 'Run across a river of stars and nebulae.' },
+      { id: 'lava', name: 'Molten Rift', desc: 'Cracked black rock, seamed with fire.' },
+      { id: 'frost', name: 'Frozen Waste', desc: 'A sheet of cracked, glittering ice.' },
+    ];
+    const grid = $('ground-grid');
+    grid.innerHTML = '';
+    for (const gnd of GROUNDS) {
+      const el = document.createElement('button');
+      el.className = 'mode-btn' + (Save.ground === gnd.id ? ' on' : '');
+      el.innerHTML = `<div class="mode-name">${gnd.name}</div><div class="mode-desc">${gnd.desc}</div>`;
+      el.onclick = () => { Save.setGround(gnd.id); this.h.onGround && this.h.onGround(gnd.id); this._renderGrounds(); };
+      grid.appendChild(el);
+    }
   }
 
   _renderModes() {
@@ -173,11 +192,13 @@ export class UI {
   _openLootbox() {
     const COST = 500;
     const res = $('lootbox-result');
+    if (this._chestOpening) return;
     if (!Save.spendGems(COST)) {
       res.textContent = 'Not enough gems.'; res.className = 'lootbox-result show dupe';
       return;
     }
-    const pool = SKINS.filter((s) => !s.defaultOwned && !s.mythic);   // the buyable bodies
+    // roll + grant immediately; the chest animation is purely a reveal
+    const pool = SKINS.filter((s) => !s.defaultOwned && !s.mythic);
     let wonId, msg, tone;
     if (Math.random() < 0.01) {                                       // 1-in-100 jackpot
       wonId = 'sovereign'; tone = 'mythic';
@@ -190,11 +211,36 @@ export class UI {
       else { Save.grantSkin(pick.id); msg = `You unboxed ${pick.name}!`; tone = 'win'; }
     }
     const idx = SKINS.findIndex((s) => s.id === wonId);
-    this._renderShop();
-    this._selectSkin(idx);                    // reveal the winning body in the turntable
-    this.refreshBank();
-    res.textContent = msg;
-    res.className = 'lootbox-result show ' + tone;
+
+    this._playChest(tone, () => {
+      this._renderShop();
+      this._selectSkin(idx);                  // spin the winning body up in the turntable
+      this.refreshBank();
+      res.textContent = msg;
+      res.className = 'lootbox-result show ' + tone;
+    });
+  }
+
+  _playChest(tone, onDone) {
+    const anim = $('lootbox-anim');
+    const chest = anim.querySelector('.chest');
+    this._chestOpening = true;
+    anim.className = tone === 'mythic' ? 'show mythic' : 'show';
+    chest.className = 'chest shaking';
+    void chest.offsetWidth;                    // restart animations
+
+    let done = false, lastTap = 0;
+    const finish = () => {
+      if (done) return; done = true;
+      clearTimeout(t1); clearTimeout(t2);
+      anim.classList.remove('show'); anim.onclick = null;
+      this._chestOpening = false;
+      onDone();
+    };
+    const t1 = setTimeout(() => { chest.className = 'chest open'; }, 850);
+    const t2 = setTimeout(finish, 1750);
+    // double-tap / double-click anywhere to skip
+    anim.onclick = () => { const now = Date.now(); if (now - lastTap < 350) finish(); lastTap = now; };
   }
 
   showHUD() {

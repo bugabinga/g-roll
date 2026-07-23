@@ -31,6 +31,15 @@ const body = `
 <canvas id="game"></canvas>
 <div id="vignette"></div>
 <div id="death-flash"><div class="df-text">YOU DIED</div></div>
+<div id="lootbox-anim">
+  <div class="chest">
+    <div class="chest-burst"></div>
+    <div class="chest-box"></div>
+    <div class="chest-lid"></div>
+  </div>
+  <div class="chest-skip">double-tap to skip</div>
+</div>
+
 <div id="screen-intro">
   <div class="intro-inner">
     <div class="intro-eyebrow">YOU RISE AS</div>
@@ -101,6 +110,8 @@ const body = `
     <h2 class="subtitle">Settings</h2>
     <div class="set-label">Atmosphere</div>
     <div id="mode-grid" class="mode-grid"></div>
+    <div class="set-label" style="margin-top:18px">Ground</div>
+    <div id="ground-grid" class="mode-grid"></div>
     <div class="set-label" style="margin-top:18px">Sound</div>
     <div class="btn-row" style="justify-content:flex-start">
       <button id="set-sound" class="btn btn-ghost">♪ sound</button>

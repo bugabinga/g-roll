@@ -197,6 +197,43 @@ body {
 .mode-name .tag { font-size: 12px; color: var(--blood-bright); letter-spacing: 0.06em; margin-left: 8px; }
 .mode-desc { font-size: 13.5px; color: #9a9488; line-height: 1.35; margin-top: 3px; }
 
+/* ---------- lootbox chest animation ---------- */
+#lootbox-anim {
+  position: fixed; inset: 0; z-index: 40; display: none;
+  align-items: center; justify-content: center; cursor: pointer;
+  background: radial-gradient(ellipse at center, rgba(24,12,4,0.78), rgba(2,2,4,0.96));
+}
+#lootbox-anim.show { display: flex; }
+.chest { position: relative; width: 160px; height: 128px; }
+.chest.shaking { animation: chestShake 0.85s ease-in-out; }
+@keyframes chestShake {
+  0%,100% { transform: rotate(0) } 15% { transform: rotate(-4deg) translateY(-2px) }
+  35% { transform: rotate(4deg) } 55% { transform: rotate(-6deg) translateY(-4px) }
+  75% { transform: rotate(6deg) } 90% { transform: rotate(-3deg) }
+}
+.chest-box {
+  position: absolute; bottom: 0; left: 8px; right: 8px; height: 74px; border-radius: 6px;
+  background: linear-gradient(180deg, #7a5a2a, #3a2a12); border: 2px solid #caa23a;
+  box-shadow: inset 0 -10px 14px rgba(0,0,0,0.5), 0 0 20px rgba(0,0,0,0.6);
+}
+.chest-box::after { content: ''; position: absolute; left: 50%; top: -6px; width: 22px; height: 26px; margin-left: -11px; border-radius: 4px; background: #e8c65a; box-shadow: 0 0 8px rgba(255,210,74,0.6); }
+.chest-lid {
+  position: absolute; top: 4px; left: 4px; right: 4px; height: 54px; border-radius: 9px 9px 3px 3px;
+  background: linear-gradient(180deg, #8a6a34, #4a3418); border: 2px solid #caa23a;
+  transform-origin: 50% 100%; transition: transform 0.55s cubic-bezier(.3,1.5,.5,1);
+}
+.chest.open .chest-lid { transform: rotateX(-125deg); }
+.chest-burst {
+  position: absolute; left: 50%; top: 44%; width: 24px; height: 24px; margin: -12px 0 0 -12px; border-radius: 50%;
+  background: radial-gradient(circle, #fff4c4, rgba(255,205,90,0.5) 40%, transparent 72%);
+  transform: scale(0); opacity: 0;
+}
+.chest.open .chest-burst { animation: chestBurst 1s ease-out forwards; }
+@keyframes chestBurst { 0% { transform: scale(0); opacity: 0 } 18% { opacity: 1 } 100% { transform: scale(20); opacity: 0 } }
+.chest-skip { position: absolute; bottom: 18%; left: 0; right: 0; text-align: center; color: var(--ash-dim); font-size: 13px; font-style: italic; letter-spacing: 0.04em; }
+#lootbox-anim.mythic .chest-box, #lootbox-anim.mythic .chest-lid { border-color: #ffd24a; box-shadow: 0 0 34px rgba(255,210,74,0.7); }
+#lootbox-anim.mythic .chest-burst { background: radial-gradient(circle, #fffbe0, rgba(255,225,120,0.7) 40%, transparent 72%); }
+
 /* ---------- lootbox ---------- */
 .lootbox {
   text-align: center; padding: 15px 16px; margin-bottom: 16px;
@@ -361,6 +398,15 @@ body {
 <canvas id="game"></canvas>
 <div id="vignette"></div>
 <div id="death-flash"><div class="df-text">YOU DIED</div></div>
+<div id="lootbox-anim">
+  <div class="chest">
+    <div class="chest-burst"></div>
+    <div class="chest-box"></div>
+    <div class="chest-lid"></div>
+  </div>
+  <div class="chest-skip">double-tap to skip</div>
+</div>
+
 <div id="screen-intro">
   <div class="intro-inner">
     <div class="intro-eyebrow">YOU RISE AS</div>
@@ -431,6 +477,8 @@ body {
     <h2 class="subtitle">Settings</h2>
     <div class="set-label">Atmosphere</div>
     <div id="mode-grid" class="mode-grid"></div>
+    <div class="set-label" style="margin-top:18px">Ground</div>
+    <div id="ground-grid" class="mode-grid"></div>
     <div class="set-label" style="margin-top:18px">Sound</div>
     <div class="btn-row" style="justify-content:flex-start">
       <button id="set-sound" class="btn btn-ghost">♪ sound</button>
@@ -53742,6 +53790,7 @@ const DEFAULT = {
   activeCurses: [], // curse ids toggled on for the next run (subset of unlocked)
   skins: [],        // character/skin ids bought in the Wardrobe (defaults are always owned)
   mode: 'night',    // atmosphere: 'night' | 'day' | 'bloodmoon'
+  ground: 'stone',  // floor skin: 'stone' | 'milkyway' | 'lava' | 'frost'
   muted: false,
 };
 
@@ -53777,6 +53826,8 @@ const Save = {
   get muted() { return state.muted; },
   get mode() { return state.mode || 'night'; },
   setMode(m) { state.mode = m; persist(); },
+  get ground() { return state.ground || 'stone'; },
+  setGround(t) { state.ground = t; persist(); },
   get activeCurses() { return [...state.activeCurses]; },
   get unlockedCurses() { return [...state.unlocked]; },
   isUnlocked(id) { return state.unlocked.includes(id); },
@@ -55129,6 +55180,7 @@ class World {
     this._buildSegments();
     this._buildHorizon();
     this.setMode('night');
+    this.setGround('stone');
 
     this.speed = 0;
     this.shake = 0;
@@ -55172,18 +55224,20 @@ class World {
 
   _buildSegments() {
     this.segments = [];
-    // wet flagstone: lower roughness + a little metalness so torch/emissive glints
-    const floorMat = new THREE.MeshStandardMaterial({ color: 0x1b1d27, roughness: 0.62, metalness: 0.38 });
+    // wet flagstone: lower roughness + a little metalness so torch/emissive glints.
+    // Kept as an instance ref so ground "skins" can re-texture it (see setGround).
+    this.floorMat = new THREE.MeshStandardMaterial({ color: 0x1b1d27, roughness: 0.62, metalness: 0.38 });
     const stoneMat = new THREE.MeshStandardMaterial({ color: 0x262a37, roughness: 0.85, metalness: 0.15 });
     const pillarMat = new THREE.MeshStandardMaterial({ color: 0x2c303c, roughness: 0.8, metalness: 0.2 });
     const runeMat = new THREE.MeshStandardMaterial({ color: 0x2a0606, emissive: 0xb01414, emissiveIntensity: 1.1, roughness: 0.5 });
     const statueMat = new THREE.MeshStandardMaterial({ color: 0x1c1f28, roughness: 0.9, metalness: 0.1 });
+    this.edgeMat = new THREE.MeshBasicMaterial({ color: 0xb01414 });   // glowing curb line (themed)
 
     for (let i = 0; i < COUNT; i++) {
       const seg = new THREE.Group();
 
       // floor slab
-      const floor = new THREE.Mesh(new THREE.BoxGeometry(HALL_W, 0.4, SEG), floorMat);
+      const floor = new THREE.Mesh(new THREE.BoxGeometry(HALL_W, 0.4, SEG), this.floorMat);
       floor.position.y = -0.2;
       floor.receiveShadow = true;
       seg.add(floor);
@@ -55195,11 +55249,17 @@ class World {
         seg.add(line);
       }
 
-      // side gutters / walls
+      // sides: a LOW glowing curb instead of a tall blank wall — opens the view to
+      // the sky and the world beyond, and frames the lanes with a lit edge.
       for (const sx of [-1, 1]) {
-        const wall = new THREE.Mesh(new THREE.BoxGeometry(0.8, 3.2, SEG), stoneMat);
-        wall.position.set(sx * (HALL_W/2 + 0.4), 1.4, 0);
-        seg.add(wall);
+        const curb = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.5, SEG), stoneMat);
+        curb.position.set(sx * (HALL_W/2 + 0.05), 0.05, 0);
+        seg.add(curb);
+        const edge = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.06, SEG*0.99), this.edgeMat);
+        edge.position.set(sx * (HALL_W/2 + 0.05), 0.32, 0);
+        seg.add(edge);
+        const glow = glowSprite(0xb01414, 1.4); glow.position.set(sx * (HALL_W/2 + 0.05), 0.34, -SEG*0.25);
+        seg.add(glow); seg.userData[`edgeGlow${sx}`] = glow;
 
         // a pillar mid-segment
         const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.62, 6.2, 8), pillarMat);
@@ -55340,6 +55400,60 @@ class World {
     this.key.color.setHex(blood ? 0xff3020 : 0xff8a44);
     this.key.intensity = day ? 0.25 : (blood ? 0.9 : 0.6);
     this.fog.color.setHex(day ? 0xa9bcd6 : (blood ? 0x2a0606 : 0x0d0d16));
+  }
+
+  // ---- ground "skins" -----------------------------------------------------
+  _groundTex(theme) {
+    this._gtc = this._gtc || {};
+    if (theme in this._gtc) return this._gtc[theme];
+    let tex = null;
+    if (theme !== 'stone') {
+      const c = document.createElement('canvas'); c.width = c.height = 256;
+      const x = c.getContext('2d');
+      if (theme === 'milkyway') {
+        x.fillStyle = '#05040f'; x.fillRect(0, 0, 256, 256);
+        // nebula band
+        const g = x.createLinearGradient(0, 256, 256, 0);
+        g.addColorStop(0, 'rgba(40,20,90,0)'); g.addColorStop(0.5, 'rgba(90,50,170,0.55)'); g.addColorStop(0.65, 'rgba(150,90,220,0.35)'); g.addColorStop(1, 'rgba(30,60,140,0)');
+        x.fillStyle = g; x.fillRect(0, 0, 256, 256);
+        for (let i = 0; i < 40; i++) { x.fillStyle = `rgba(${120+Math.random()*100|0},${80+Math.random()*80|0},${200},0.12)`; x.beginPath(); x.arc(Math.random()*256, Math.random()*256, 12+Math.random()*40, 0, 7); x.fill(); }
+        for (let i = 0; i < 420; i++) { const b = Math.random(); x.fillStyle = b > 0.9 ? '#bfe0ff' : (b > 0.6 ? '#ffffff' : 'rgba(200,210,255,0.7)'); const r = b > 0.9 ? 1.6 : 0.9; x.beginPath(); x.arc(Math.random()*256, Math.random()*256, r, 0, 7); x.fill(); }
+      } else if (theme === 'lava') {
+        x.fillStyle = '#0b0705'; x.fillRect(0, 0, 256, 256);
+        for (let i = 0; i < 26; i++) { x.strokeStyle = `rgba(255,${90+Math.random()*90|0},20,${0.5+Math.random()*0.4})`; x.lineWidth = 1 + Math.random()*2.5; x.beginPath(); let px = Math.random()*256, py = Math.random()*256; x.moveTo(px, py); for (let k = 0; k < 5; k++) { px += (Math.random()-0.5)*70; py += (Math.random()-0.5)*70; x.lineTo(px, py); } x.stroke(); }
+        for (let i = 0; i < 60; i++) { x.fillStyle = `rgba(255,${120+Math.random()*80|0},40,0.8)`; x.beginPath(); x.arc(Math.random()*256, Math.random()*256, Math.random()*1.8, 0, 7); x.fill(); }
+      } else if (theme === 'frost') {
+        x.fillStyle = '#0a1822'; x.fillRect(0, 0, 256, 256);
+        for (let i = 0; i < 30; i++) { x.strokeStyle = `rgba(${140+Math.random()*80|0},${220},255,${0.4+Math.random()*0.4})`; x.lineWidth = 1 + Math.random()*2; x.beginPath(); let px = Math.random()*256, py = Math.random()*256; x.moveTo(px, py); for (let k = 0; k < 4; k++) { px += (Math.random()-0.5)*60; py += (Math.random()-0.5)*60; x.lineTo(px, py); } x.stroke(); }
+        for (let i = 0; i < 120; i++) { x.fillStyle = 'rgba(200,240,255,0.6)'; x.beginPath(); x.arc(Math.random()*256, Math.random()*256, Math.random()*1.4, 0, 7); x.fill(); }
+      }
+      tex = new THREE.CanvasTexture(c);
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(1.5, SEG / (HALL_W / 2));
+    }
+    this._gtc[theme] = tex;
+    return tex;
+  }
+
+  setGround(theme) {
+    this.ground = theme;
+    const CFG = {
+      stone:    { color: 0x1b1d27, emissive: 0, rough: 0.62, metal: 0.38, edge: 0xb01414 },
+      milkyway: { color: 0x0a0820, emissive: 1.35, rough: 0.5, metal: 0.5, edge: 0x8a5aff },
+      lava:     { color: 0x1a0c06, emissive: 1.2, rough: 0.7, metal: 0.2, edge: 0xff6a1e },
+      frost:    { color: 0x11242e, emissive: 1.0, rough: 0.35, metal: 0.5, edge: 0x59d6ff },
+    };
+    const cfg = CFG[theme] || CFG.stone;
+    const tex = this._groundTex(theme);
+    const m = this.floorMat;
+    m.map = tex; m.emissiveMap = tex;
+    m.color.setHex(cfg.color);
+    m.emissive.setHex(tex ? 0xffffff : 0x000000);
+    m.emissiveIntensity = cfg.emissive;
+    m.roughness = cfg.rough; m.metalness = cfg.metal;
+    m.needsUpdate = true;
+    this.edgeMat.color.setHex(cfg.edge);
+    for (const seg of this.segments) for (const sx of [-1, 1]) { const gl = seg.userData[`edgeGlow${sx}`]; if (gl) gl.material.color.setHex(cfg.edge); }
   }
 
   _buildStars() {
@@ -56177,8 +56291,27 @@ class UI {
     $('set-sound').textContent = Save.muted ? '♪ muted' : '♪ sound';
     $('set-sound').classList.toggle('off', Save.muted);
     this._renderModes();
+    this._renderGrounds();
     $('screen-settings').classList.add('show');
     this.h.onSettings && this.h.onSettings();
+  }
+
+  _renderGrounds() {
+    const GROUNDS = [
+      { id: 'stone', name: 'Cathedral Stone', desc: 'Wet flagstone, torch-lit. The old road.' },
+      { id: 'milkyway', name: 'The Milky Way', desc: 'Run across a river of stars and nebulae.' },
+      { id: 'lava', name: 'Molten Rift', desc: 'Cracked black rock, seamed with fire.' },
+      { id: 'frost', name: 'Frozen Waste', desc: 'A sheet of cracked, glittering ice.' },
+    ];
+    const grid = $('ground-grid');
+    grid.innerHTML = '';
+    for (const gnd of GROUNDS) {
+      const el = document.createElement('button');
+      el.className = 'mode-btn' + (Save.ground === gnd.id ? ' on' : '');
+      el.innerHTML = `<div class="mode-name">${gnd.name}</div><div class="mode-desc">${gnd.desc}</div>`;
+      el.onclick = () => { Save.setGround(gnd.id); this.h.onGround && this.h.onGround(gnd.id); this._renderGrounds(); };
+      grid.appendChild(el);
+    }
   }
 
   _renderModes() {
@@ -56278,11 +56411,13 @@ class UI {
   _openLootbox() {
     const COST = 500;
     const res = $('lootbox-result');
+    if (this._chestOpening) return;
     if (!Save.spendGems(COST)) {
       res.textContent = 'Not enough gems.'; res.className = 'lootbox-result show dupe';
       return;
     }
-    const pool = SKINS.filter((s) => !s.defaultOwned && !s.mythic);   // the buyable bodies
+    // roll + grant immediately; the chest animation is purely a reveal
+    const pool = SKINS.filter((s) => !s.defaultOwned && !s.mythic);
     let wonId, msg, tone;
     if (Math.random() < 0.01) {                                       // 1-in-100 jackpot
       wonId = 'sovereign'; tone = 'mythic';
@@ -56295,11 +56430,36 @@ class UI {
       else { Save.grantSkin(pick.id); msg = `You unboxed ${pick.name}!`; tone = 'win'; }
     }
     const idx = SKINS.findIndex((s) => s.id === wonId);
-    this._renderShop();
-    this._selectSkin(idx);                    // reveal the winning body in the turntable
-    this.refreshBank();
-    res.textContent = msg;
-    res.className = 'lootbox-result show ' + tone;
+
+    this._playChest(tone, () => {
+      this._renderShop();
+      this._selectSkin(idx);                  // spin the winning body up in the turntable
+      this.refreshBank();
+      res.textContent = msg;
+      res.className = 'lootbox-result show ' + tone;
+    });
+  }
+
+  _playChest(tone, onDone) {
+    const anim = $('lootbox-anim');
+    const chest = anim.querySelector('.chest');
+    this._chestOpening = true;
+    anim.className = tone === 'mythic' ? 'show mythic' : 'show';
+    chest.className = 'chest shaking';
+    void chest.offsetWidth;                    // restart animations
+
+    let done = false, lastTap = 0;
+    const finish = () => {
+      if (done) return; done = true;
+      clearTimeout(t1); clearTimeout(t2);
+      anim.classList.remove('show'); anim.onclick = null;
+      this._chestOpening = false;
+      onDone();
+    };
+    const t1 = setTimeout(() => { chest.className = 'chest open'; }, 850);
+    const t2 = setTimeout(finish, 1750);
+    // double-tap / double-click anywhere to skip
+    anim.onclick = () => { const now = Date.now(); if (now - lastTap < 350) finish(); lastTap = now; };
   }
 
   showHUD() {
@@ -56490,6 +56650,7 @@ class Game {
       onAltar: () => { this.state = 'altar'; },
       onShop: () => { this.state = 'shop'; },
       onSettings: () => { this.state = 'settings'; },
+      onGround: (t) => { this.world.setGround(t); },   // live preview in settings
       onMenu: () => { this.state = 'menu'; },
       onMute: () => { const m = Save.toggleMute(); this.audio.setMuted(m); return m; },
     });
@@ -56505,6 +56666,7 @@ class Game {
     this._resize();
     window.addEventListener('resize', () => this._resize());
 
+    this.world.setGround(Save.ground);
     this.player.hide();
     this.ui.showMenu();
 
@@ -56537,6 +56699,7 @@ class Game {
     // atmosphere mode chosen in Settings: day / night / bloodmoon
     const mode = Save.mode;
     this.world.setMode(mode);
+    this.world.setGround(Save.ground);
     if (mode === 'day') s.fogDensity *= 0.72;
     if (mode === 'bloodmoon') { s.startSpeed *= 2; s.maxSpeed *= 2; }   // 2x faster
     this._bloodmoon = (mode === 'bloodmoon');
