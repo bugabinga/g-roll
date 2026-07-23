@@ -410,7 +410,7 @@ body {
 .hud-speed-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--gold), var(--blood-bright)); border-radius: 2px; box-shadow: 0 0 12px rgba(255,42,42,0.6); transition: width 0.2s ease; }
 
 /* ---------- GTA-style death flash ---------- */
-#game.dead-fx { filter: grayscale(0.92) contrast(1.12) brightness(0.72) sepia(0.25); transition: filter 0.5s ease; }
+#game.dead-fx { filter: grayscale(0.5) contrast(1.18) brightness(0.74) saturate(1.15); transition: filter 0.4s ease; }
 #death-flash {
   position: fixed; inset: 0; z-index: 18; display: none;
   align-items: center; justify-content: center; pointer-events: none;

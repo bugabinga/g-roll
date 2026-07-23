@@ -342,6 +342,26 @@ const ROWS = {
 };
 
 // ---------------------------------------------------------------------------
+//  TRAPS — short scripted 2-row combos that are deliberately MEAN: bait, feints
+//  and quick switches. Every one is solvable with the right, timely input — the
+//  spawner gives trap rows extra spacing so they're tight, never impossible.
+//  `gem` on a row baits you into a lane; the follow-up punishes greed.
+// ---------------------------------------------------------------------------
+const TRAPS = [
+  // greedy bait: gems pull you to the centre, then it becomes a roll-gate
+  { rows: [ { p: ['block', n, 'block'], gem: 1 }, { p: [n, 'high', n] } ] },
+  // squeeze: forced to the centre, then the centre slams shut — dodge either way
+  { rows: [ { p: ['block', n, 'block'] }, { p: [n, 'block', n] } ] },
+  // leap-then-duck, sides walled so you can't just sidestep it
+  { rows: [ { p: ['block', 'low', 'block'], gem: 1 }, { p: ['block', 'high', 'block'] } ] },
+  // fake-safe switch: the open lane closes and a different one opens
+  { rows: [ { p: ['block', 'block', n] }, { p: ['block', n, 'block'] } ] },
+  { rows: [ { p: [n, 'block', 'block'] }, { p: ['block', n, 'block'] } ] },
+  // bait a jump, land onto a low — one lane, gems on the pad-in
+  { rows: [ { p: ['block', 'gap', 'block'], gem: 1 }, { p: ['block', 'low', 'block'] } ] },
+];
+
+// ---------------------------------------------------------------------------
 export class Spawner {
   constructor(scene, opts = {}) {
     this.scene = scene;
@@ -361,6 +381,9 @@ export class Spawner {
     this.spawnAcc = 30;     // distance travelled until the next row spawns
     this.rowCount = 0;
     this._padReserve = null; // keeps a lane clear + gemmed after a jump pad
+    this._pathReserve = null; // a long winding gem trail across the lanes
+    this._trapReserve = null; // a scripted mean-trap combo in progress
+    this._extraGap = 0;      // one-shot extra spacing (gives trap rows reaction time)
     this._t = 0;
   }
 
@@ -447,11 +470,13 @@ export class Spawner {
       }
     }
 
-    // spawn new rows as the world advances (rows are spaced by `gap` metres)
+    // spawn new rows as the world advances (rows are spaced by `gap` metres).
+    // _extraGap is a one-shot bonus the traps use to buy the player reaction time.
     this.spawnAcc -= speed * dt;
     while (this.spawnAcc <= 0) {
       this._spawnRow(-CONFIG.spawnAhead, speed);
-      this.spawnAcc += this._gap(speed);
+      this.spawnAcc += this._gap(speed) + (this._extraGap || 0);
+      this._extraGap = 0;
     }
   }
 
@@ -496,9 +521,31 @@ export class Spawner {
       return;
     }
 
-    // first few rows are gentle warmups
-    let pattern;
-    if (this.rowCount <= 3) {
+    // --- winding gem PATH (rare): a long trail that snakes across the lanes,
+    //     rewarding fluid lane-weaving. Its lane is kept clear on every row.
+    if (this.rowCount > 6 && !this._padReserve && !this._pathReserve && !this._trapReserve && Math.random() < 0.06) {
+      this._pathReserve = { lane: (Math.random() * 3) | 0, dir: Math.random() < 0.5 ? -1 : 1, rows: 12 + ((Math.random() * 8) | 0) };
+    }
+    // --- MEAN trap combo (rare): a scripted bait/feint. Punishing, but always
+    //     solvable — trap rows get extra spacing (below) so the timing is fair.
+    if (this.rowCount > 8 && !this._padReserve && !this._pathReserve && !this._trapReserve && Math.random() < 0.07) {
+      this._trapReserve = { rows: TRAPS[(Math.random() * TRAPS.length) | 0].rows, i: 0 };
+    }
+
+    // pattern for this row: an active trap combo overrides the random pick
+    let pattern, trapGem = -1;
+    if (this._trapReserve) {
+      const row = this._trapReserve.rows[this._trapReserve.i];
+      pattern = row.p.slice();
+      if (row.gem != null) {
+        trapGem = pattern.indexOf(null);                          // bait into the open lane…
+        if (trapGem < 0) trapGem = pattern.findIndex((t) => t === 'gap' || t === 'low');  // …or the jumpable one
+        if (trapGem < 0) trapGem = 1;
+      }
+      this._trapReserve.i++;
+      if (this._trapReserve.i < this._trapReserve.rows.length) this._extraGap = 7;   // reaction time before the punish
+      else this._trapReserve = null;
+    } else if (this.rowCount <= 3) {
       const warm = ROWS.easy.slice(0, 6);
       pattern = warm[(Math.random() * warm.length) | 0];
     } else {
@@ -509,6 +556,11 @@ export class Spawner {
     if (this._padReserve) {
       pattern = pattern.slice();
       pattern[this._padReserve.lane] = null;
+    }
+    // honour a winding-path reservation: keep the trail lane clear to run through
+    if (this._pathReserve) {
+      pattern = pattern.slice();
+      pattern[this._pathReserve.lane] = null;
     }
 
     const safeLanes = [];
@@ -526,18 +578,33 @@ export class Spawner {
       if (--this._padReserve.rows <= 0) this._padReserve = null;
     }
 
-    // gems: reward the clean line. Place an arc in a safe (or jumpable) lane.
-    const chance = this.opts.gemChance ?? CONFIG.gemChance;
-    if (Math.random() < chance) {
-      // prefer a lane that is empty, else a 'low'/'gap' lane (collected mid-jump)
-      let lane = safeLanes.length ? safeLanes[(Math.random()*safeLanes.length)|0] : -1;
-      let arc = false;
-      if (lane === -1) {
-        for (let l = 0; l < 3; l++) if (pattern[l] === 'low' || pattern[l] === 'gap') { lane = l; arc = true; break; }
-      } else {
-        arc = Math.random() < 0.4;
+    if (this._pathReserve) {
+      // lay the trail in the current path lane, then wind to a new lane for next row
+      const pr = this._pathReserve;
+      this._spawnGemLine(pr.lane, z, false);
+      if (Math.random() < 0.7) {
+        pr.lane += pr.dir;
+        if (pr.lane < 0) { pr.lane = 0; pr.dir = 1; }
+        if (pr.lane > 2) { pr.lane = 2; pr.dir = -1; }
+        if (Math.random() < 0.28) pr.dir *= -1;                   // occasional switchback
       }
-      if (lane !== -1) this._spawnGemLine(lane, z, arc);
+      if (--pr.rows <= 0) this._pathReserve = null;
+    } else if (trapGem >= 0) {
+      // trap bait — gems that lure you into the lane the follow-up punishes
+      this._spawnGemLine(trapGem, z, pattern[trapGem] === 'gap' || pattern[trapGem] === 'low');
+    } else {
+      // gems: reward the clean line. Place an arc in a safe (or jumpable) lane.
+      const chance = this.opts.gemChance ?? CONFIG.gemChance;
+      if (Math.random() < chance) {
+        let lane = safeLanes.length ? safeLanes[(Math.random() * safeLanes.length) | 0] : -1;
+        let arc = false;
+        if (lane === -1) {
+          for (let l = 0; l < 3; l++) if (pattern[l] === 'low' || pattern[l] === 'gap') { lane = l; arc = true; break; }
+        } else {
+          arc = Math.random() < 0.4;
+        }
+        if (lane !== -1) this._spawnGemLine(lane, z, arc);
+      }
     }
   }
 

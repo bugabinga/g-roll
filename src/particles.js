@@ -109,10 +109,10 @@ export class Blood {
       this.vel[i*3+1] = Math.abs(Math.cos(p))*s*0.9 + 3;
       this.vel[i*3+2] = Math.sin(p)*Math.sin(a)*s;
       this.life[i] = 0.7 + Math.random() * 0.9;
-      const dark = Math.random() < 0.5;
-      this.col[i*3]   = dark ? 0.35 : 0.7;   // crimson, some near-black
-      this.col[i*3+1] = dark ? 0.0 : 0.03;
-      this.col[i*3+2] = 0.02;
+      const dark = Math.random() < 0.4;
+      this.col[i*3]   = dark ? 0.5 : 1.0;    // vivid comic crimson, some darker
+      this.col[i*3+1] = dark ? 0.0 : 0.06;
+      this.col[i*3+2] = 0.03;
     }
     this.geo.attributes.color.needsUpdate = true;
   }
@@ -135,6 +135,104 @@ export class Blood {
   }
 
   reset() { this.active = 0; this.points.visible = false; for (let i=0;i<this.max;i++) this.life[i]=0; }
+}
+
+// ---- GIBS — a comic death: the body bursts into flying limbs & chunks --------
+//  Chunky low-detail pieces (head, torso, arms, legs, gore bits, the soul orb)
+//  launch outward with spin + gravity, bounce off the floor, then fade. Plus a
+//  few growing blood splats on the ground. Cartoon-gory, never hyperreal.
+export class Gibs {
+  constructor(scene) {
+    this.scene = scene;
+    this.pieces = [];
+    const flesh  = new THREE.MeshStandardMaterial({ color: 0xa81b1b, roughness: 0.9, emissive: 0x2a0303, emissiveIntensity: 0.6 });
+    const flesh2 = new THREE.MeshStandardMaterial({ color: 0x7a1010, roughness: 1, emissive: 0x1e0202, emissiveIntensity: 0.5 });
+    const bone   = new THREE.MeshStandardMaterial({ color: 0xe4dcc2, roughness: 0.7 });
+    const mk = (geo, mat) => { const m = new THREE.Mesh(geo, mat); m.visible = false; scene.add(m); this.pieces.push(m); return m; };
+    this.head = mk(new THREE.SphereGeometry(0.24, 10, 8), bone);                 // head
+    mk(new THREE.BoxGeometry(0.5, 0.62, 0.4), flesh);                            // torso
+    mk(new THREE.CapsuleGeometry(0.11, 0.42, 4, 8), flesh);                      // arm
+    mk(new THREE.CapsuleGeometry(0.11, 0.42, 4, 8), flesh);                      // arm
+    mk(new THREE.CapsuleGeometry(0.12, 0.48, 4, 8), flesh2);                     // leg
+    mk(new THREE.CapsuleGeometry(0.12, 0.48, 4, 8), flesh2);                     // leg
+    for (let i = 0; i < 8; i++) mk(new THREE.IcosahedronGeometry(0.09 + Math.random() * 0.09, 0), i % 2 ? flesh : flesh2);  // gore bits
+
+    // the soul orb flies free, tinted per body
+    this.soul = new THREE.Mesh(new THREE.IcosahedronGeometry(0.18, 0), new THREE.MeshBasicMaterial({ color: 0xffa23a }));
+    this.soul.visible = false; scene.add(this.soul); this.pieces.push(this.soul);
+    this.soulGlow = glowSprite(0xffa23a, 1.5); this.soulGlow.visible = false; scene.add(this.soulGlow);
+
+    // flat blood splats that bloom on the ground
+    this.splats = [];
+    for (let i = 0; i < 4; i++) {
+      const s = new THREE.Mesh(new THREE.CircleGeometry(0.6, 14),
+        new THREE.MeshBasicMaterial({ color: 0x4a0707, transparent: true, opacity: 0, depthWrite: false }));
+      s.rotation.x = -Math.PI / 2; s.position.y = 0.02; s.visible = false; scene.add(s); this.splats.push(s);
+    }
+    this.active = false; this._t = 0;
+  }
+
+  burst(x, y, z, soulColor = 0xffa23a, power = 1) {
+    this.active = true; this._t = 0;
+    this.soul.material.color.setHex(soulColor);
+    this.soulGlow.material.color.setHex(soulColor);
+    for (const p of this.pieces) {
+      p.visible = true;
+      p.position.set(x + (Math.random() - 0.5) * 0.3, y + Math.random() * 0.6, z + (Math.random() - 0.5) * 0.3);
+      p.scale.setScalar(1);
+      const a = Math.random() * Math.PI * 2;
+      const spd = (5 + Math.random() * 9) * power;
+      const d = p.userData;
+      d.vx = Math.cos(a) * spd;
+      d.vy = 5 + Math.random() * 8;                    // launch UP for the splat arc
+      d.vz = Math.sin(a) * spd * 0.6 + 2.5;            // bias toward the camera
+      d.avx = (Math.random() - 0.5) * 20; d.avy = (Math.random() - 0.5) * 20; d.avz = (Math.random() - 0.5) * 20;
+      d.life = d.maxLife = 1.5 + Math.random() * 0.8;
+    }
+    this.soulGlow.visible = true;
+    for (const s of this.splats) {
+      s.visible = true; s.material.opacity = 0;
+      s.position.set(x + (Math.random() - 0.5) * 2.6, 0.02, z + (Math.random() - 0.5) * 1.8);
+      s.scale.setScalar(0.2 + Math.random() * 0.4);
+      s.userData.grow = 1.4 + Math.random() * 1.6;
+    }
+  }
+
+  update(dt) {
+    if (!this.active) return;
+    this._t += dt;
+    let alive = 0;
+    for (const p of this.pieces) {
+      if (!p.visible) continue;
+      const d = p.userData;
+      d.life -= dt;
+      if (d.life <= 0) { p.visible = false; continue; }
+      d.vy += -26 * dt;                                // gravity
+      p.position.x += d.vx * dt; p.position.y += d.vy * dt; p.position.z += d.vz * dt;
+      p.rotation.x += d.avx * dt; p.rotation.y += d.avy * dt; p.rotation.z += d.avz * dt;
+      if (p.position.y < 0.12) {                       // floor bounce
+        p.position.y = 0.12; d.vy *= -0.32; d.vx *= 0.7; d.vz *= 0.7; d.avx *= 0.5; d.avz *= 0.5;
+      }
+      const f = d.life / d.maxLife;
+      if (f < 0.35) p.scale.setScalar(Math.max(0.01, f / 0.35));    // shrink away at the end
+      alive++;
+    }
+    if (this.soul.visible) { this.soulGlow.position.copy(this.soul.position); this.soulGlow.scale.setScalar(1.5 * this.soul.scale.x); }
+    for (const s of this.splats) {
+      if (!s.visible) continue;
+      s.scale.setScalar(Math.min(s.userData.grow, s.scale.x + dt * 2.4));
+      if (this._t < 0.4) s.material.opacity = Math.min(0.72, s.material.opacity + dt * 2);
+      else s.material.opacity = Math.max(0, s.material.opacity - dt * 0.35);
+    }
+    if (alive === 0 && this._t > 0.5) { this.active = false; this.hide(); }
+  }
+
+  hide() {
+    for (const p of this.pieces) p.visible = false;
+    this.soulGlow.visible = false;
+    for (const s of this.splats) s.visible = false;
+  }
+  reset() { this.active = false; this.hide(); }
 }
 
 // ---- fiery sparks (explosions / bounces) -----------------------------------

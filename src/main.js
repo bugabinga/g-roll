@@ -12,7 +12,7 @@ import { Audio } from './audio.js';
 import { World } from './world.js';
 import { Player } from './player.js';
 import { Spawner } from './spawner.js';
-import { Embers, Blood, Sparks } from './particles.js';
+import { Embers, Blood, Sparks, Gibs } from './particles.js';
 import { SkinPreview } from './preview.js';
 import { UI } from './ui.js';
 
@@ -33,6 +33,7 @@ class Game {
     this.embers = new Embers(this.world.scene);
     this.blood = new Blood(this.world.scene);
     this.sparks = new Sparks(this.world.scene);
+    this.gibs = new Gibs(this.world.scene);
     this.spawner = new Spawner(this.world.scene, {});
 
     this.input = new Input();
@@ -136,6 +137,7 @@ class Game {
     this.spawner.reset();
     this.blood.reset();
     this.sparks.reset();
+    this.gibs.reset();
     this.input.clear();
     this.input.enabled = false;   // the intro is non-interactive
 
@@ -228,12 +230,17 @@ class Game {
     this.player.alive = false;
     this.input.enabled = false;
     const p = this.player.group.position;
+    const bomb = cause && cause.type === 'bomb';
+    // comic death: the body bursts into flying limbs, gore and a fountain of blood
+    const soulColor = this.player.soul ? this.player.soul.color.getHex() : 0xffa23a;
     this.blood.burst(p.x, p.y + 1.0, p.z);
-    if (cause && cause.type === 'bomb') {
-      this.sparks.burst(p.x, p.y + 0.8, p.z, 1.6);   // fiery blast
+    this.gibs.burst(p.x, p.y + 0.9, p.z, soulColor, bomb ? 1.5 : 1.0);
+    this.player.hide();                              // the intact body is gone — only gibs remain
+    if (bomb) {
+      this.sparks.burst(p.x, p.y + 0.8, p.z, 1.8);   // fiery blast
       this.audio.explosion();
     }
-    this.world.addShake(cause && cause.type === 'bomb' ? 1.3 : CONFIG.cameraShakeDeath);
+    this.world.addShake(bomb ? 1.3 : CONFIG.cameraShakeDeath);
     this.audio.death();
     this.audio.stopDrone();
     // banking happens once, at the transition to the death screen
@@ -366,6 +373,7 @@ class Game {
     this.embers.update(dt, r.speed * slow, this.world.camera.position.z);
     this.blood.update(dt);
     this.sparks.update(dt);
+    this.gibs.update(dt);                 // limbs fly in real time over the death beat
     if (r.dieTimer <= 0) this.finishRun();
   }
 
