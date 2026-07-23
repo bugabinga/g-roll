@@ -409,6 +409,37 @@ body {
 .hud-speed-track { position: absolute; left: 22px; right: 22px; bottom: 44px; height: 3px; background: rgba(255,255,255,0.08); border-radius: 2px; }
 .hud-speed-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--gold), var(--blood-bright)); border-radius: 2px; box-shadow: 0 0 12px rgba(255,42,42,0.6); transition: width 0.2s ease; }
 
+/* ---------- THE COLLAPSE: dread gauge + creeping veil + lore beats ---------- */
+.hud-collapse { position: absolute; left: 22px; right: 22px; bottom: 22px; display: flex; align-items: center; gap: 9px; }
+.hud-collapse-label { font-family: 'Cinzel', serif; font-size: 9.5px; letter-spacing: 0.18em; color: rgba(200,150,140,0.6); white-space: nowrap; }
+.hud-collapse-track { flex: 1 1 auto; height: 3px; background: rgba(255,255,255,0.07); border-radius: 2px; overflow: hidden; }
+.hud-collapse-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #3a1010, #b81c1c); border-radius: 2px; box-shadow: 0 0 10px rgba(200,30,30,0.5); transition: width 0.25s ease; }
+.hud-collapse.danger .hud-collapse-label { color: #ff6a5a; animation: pulse 0.8s infinite; }
+.hud-collapse.danger .hud-collapse-fill { background: linear-gradient(90deg, #7a1010, #ff3a2a); box-shadow: 0 0 16px rgba(255,50,30,0.8); }
+
+/* the veil floods up from the bottom edge as the cave-in closes in */
+#collapse-veil {
+  position: fixed; inset: 0; z-index: 8; pointer-events: none; opacity: 0;
+  transition: opacity 0.3s ease;
+  background:
+    radial-gradient(120% 70% at 50% 118%, rgba(120,10,10,0.55) 0%, rgba(30,4,4,0.35) 40%, rgba(0,0,0,0) 70%),
+    linear-gradient(0deg, rgba(6,2,2,0.7) 0%, rgba(6,2,2,0) 38%);
+}
+
+#lore-flash {
+  position: fixed; left: 0; right: 0; top: 30%; z-index: 16; pointer-events: none;
+  text-align: center; font-family: 'EB Garamond', serif; font-style: italic;
+  font-size: clamp(16px, 4.4vw, 22px); color: #e9d7c2; opacity: 0;
+  text-shadow: 0 0 22px rgba(180,20,20,0.7), 0 2px 6px #000; padding: 0 8vw; text-wrap: balance;
+}
+#lore-flash.show { animation: loreBeat 3.4s ease-in-out both; }
+@keyframes loreBeat {
+  0% { opacity: 0; transform: translateY(10px) scale(0.98); letter-spacing: 0.2em; }
+  14% { opacity: 1; transform: none; letter-spacing: 0.04em; }
+  78% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
 /* ---------- GTA-style death flash ---------- */
 #game.dead-fx { filter: grayscale(0.5) contrast(1.18) brightness(0.74) saturate(1.15); transition: filter 0.4s ease; }
 #death-flash {

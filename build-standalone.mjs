@@ -31,6 +31,8 @@ const body = `
 <canvas id="game"></canvas>
 <div id="vignette"></div>
 <div id="death-flash"><div class="df-text">YOU DIED</div></div>
+<div id="collapse-veil"></div>
+<div id="lore-flash"></div>
 <div id="lootbox-anim">
   <div class="chest">
     <div class="chest-burst"></div>
@@ -62,6 +64,10 @@ const body = `
   </div>
   <div id="hud-debuffs" class="hud-debuffs"></div>
   <div class="hud-speed-track"><div id="hud-speed" class="hud-speed-fill"></div></div>
+  <div id="hud-collapse" class="hud-collapse">
+    <span class="hud-collapse-label">THE COLLAPSE</span>
+    <div class="hud-collapse-track"><div id="hud-collapse-fill" class="hud-collapse-fill"></div></div>
+  </div>
 </div>
 
 <div id="screen-menu" class="screen">

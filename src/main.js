@@ -13,8 +13,18 @@ import { World } from './world.js';
 import { Player } from './player.js';
 import { Spawner } from './spawner.js';
 import { Embers, Blood, Sparks, Gibs } from './particles.js';
+import { Collapse } from './collapse.js';
 import { SkinPreview } from './preview.js';
 import { UI } from './ui.js';
+
+// The collapse's mini-story — beats that flash as you outrun the cave-in.
+const COLLAPSE_LORE = [
+  { dist: 350,  text: 'The nave gives way behind you.' },
+  { dist: 850,  text: 'Pillars fall like felled trees — do not look back.' },
+  { dist: 1600, text: 'The cathedral is eating itself to reach you.' },
+  { dist: 2600, text: 'It has swallowed the altar. Still it comes.' },
+  { dist: 4000, text: 'A god\'s house, falling forever — and you, still ahead of it.' },
+];
 
 class Game {
   constructor() {
@@ -34,6 +44,8 @@ class Game {
     this.blood = new Blood(this.world.scene);
     this.sparks = new Sparks(this.world.scene);
     this.gibs = new Gibs(this.world.scene);
+    this.collapse = new Collapse(this.world.scene);   // the cathedral caving in at your heels
+    this.collapse.hide();
     this.spawner = new Spawner(this.world.scene, {});
 
     this.input = new Input();
@@ -131,6 +143,8 @@ class Game {
       nextChoiceAt: 40,       // seconds of play until the next forced wound
       debuffs: [],            // ids of wounds taken this run
       jumps: 0, rolls: 0,     // action tallies for daily quests
+      dread: 0.12,            // how close the Collapse is (0..1, cinematic)
+      loreAt: 0,              // index of the next collapse lore beat
     };
 
     this.player.reset();          // rolls this run's character
@@ -138,6 +152,7 @@ class Game {
     this.blood.reset();
     this.sparks.reset();
     this.gibs.reset();
+    this.collapse.reset();        // the cave-in resets to a distant rumble
     this.input.clear();
     this.input.enabled = false;   // the intro is non-interactive
 
@@ -161,6 +176,9 @@ class Game {
     this.embers.update(dt, 2.5, this.world.camera.position.z);
     this.blood.update(dt);
     this.sparks.update(dt);
+    // the cave-in looms right behind during the showcase, then falls back as you bolt
+    this.collapse.setProximity(0.7 - prep * 0.5);
+    this.collapse.update(dt);
     this.player.introUpdate(dt, prep);
 
     // camera: close hero shot, gently orbiting, then lerp back to the game view
@@ -209,6 +227,8 @@ class Game {
     d.apply(this);
     this.run.gemYield += d.gemBonus;
     this.run.debuffs.push(d.id);
+    this.run.dread = Math.min(0.9, this.run.dread + 0.16);   // you paused — the cave-in gained
+    this.collapse.addLunge(1);
     this.run.nextChoiceAt += 40;
     this.ui.hideChoice();
     this.audio.roll();          // a wet, resigned whoosh as the wound takes hold
@@ -235,6 +255,8 @@ class Game {
     const soulColor = this.player.soul ? this.player.soul.color.getHex() : 0xffa23a;
     this.blood.burst(p.x, p.y + 1.0, p.z);
     this.gibs.burst(p.x, p.y + 0.9, p.z, soulColor, bomb ? 1.5 : 1.0);
+    this.collapse.crush();                           // the cave-in floods forward to bury you
+    this.ui.setCollapse(1);
     this.player.hide();                              // the intact body is gone — only gibs remain
     if (bomb) {
       this.sparks.burst(p.x, p.y + 0.8, p.z, 1.8);   // fiery blast
@@ -252,6 +274,8 @@ class Game {
     this.canvas.classList.remove('dead-fx');
     const flash = document.getElementById('death-flash');
     if (flash) flash.classList.remove('show');
+    this.collapse.hide();                 // the cave-in stills once the run is over
+    this.ui.setCollapse(0);
     Save.addGems(r.gems);
     const { newBest } = Save.recordRun(Math.floor(r.score), r.distance);
     const record = newBest && r.score > 0;
@@ -346,6 +370,22 @@ class Game {
       });
     if (hit) { this.die(hit); return; }
 
+    // -- THE COLLAPSE: relentless creep, calmed by clean dodging, surged by risk.
+    //    Cinematic only — it never kills you; crashing into a hazard does.
+    r.dread = Math.min(0.9, r.dread + dt * 0.013);
+    if (this.spawner.passedClean) r.dread = Math.max(0, r.dread - this.spawner.passedClean * 0.02);
+    if (this.spawner.nearMiss) this.collapse.addLunge(0.4 * this.spawner.nearMiss);   // it snaps at each close shave
+    this.collapse.setProximity(r.dread);
+    const near = this.collapse.update(dt);
+    this.ui.setCollapse(near);
+    if (near > 0.82) this.world.addShake(0.06 * (near - 0.82) / 0.18);   // rumble when it's on you
+
+    // the collapse mini-story: flash a beat as you pass each distance milestone
+    if (r.loreAt < COLLAPSE_LORE.length && r.distance >= COLLAPSE_LORE[r.loreAt].dist) {
+      this.ui.flashLore(COLLAPSE_LORE[r.loreAt].text);
+      r.loreAt++;
+    }
+
     // heartbeat quickens with speed; music escalates with time survived
     const speedPct = (r.speed - r.settings.startSpeed) / (r.settings.maxSpeed - r.settings.startSpeed);
     const clampedSpeed = THREE.MathUtils.clamp(speedPct, 0, 1);
@@ -374,6 +414,7 @@ class Game {
     this.blood.update(dt);
     this.sparks.update(dt);
     this.gibs.update(dt);                 // limbs fly in real time over the death beat
+    this.collapse.update(dt);             // the rubble surges over the wreck
     if (r.dieTimer <= 0) this.finishRun();
   }
 

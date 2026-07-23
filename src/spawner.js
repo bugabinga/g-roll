@@ -430,6 +430,11 @@ export class Spawner {
   update(dt, speed, player) {
     this._t += dt;
     const fury = this.opts.hazardFury ? 2.0 : 1.0;
+    // per-frame chase signals: obstacles that leave behind the player this frame.
+    // A hazard in YOUR lane that you survived = a near-miss (you jumped/rolled it);
+    // one in another lane = a clean dodge. The Collapse reads these.
+    this.nearMiss = 0; this.passedClean = 0;
+    const plane = player ? player.laneIndex : 1;
 
     // scroll obstacles toward the camera; beasts charge extra fast
     for (let i = this.active.length - 1; i >= 0; i--) {
@@ -452,6 +457,10 @@ export class Spawner {
         o.mesh.userData.flames.children.forEach((f) => { f.scale.y = 0.7 + Math.random() * 0.7; f.scale.x = 0.85 + Math.random() * 0.3; });
       }
       if (o.z > CONFIG.despawnBehind) {
+        // it just slipped behind the player alive → a near-miss or a clean dodge
+        if (o.type !== 'pad' && o.type !== 'platform') {
+          if (o.lane === -1 || o.lane === plane) this.nearMiss++; else this.passedClean++;
+        }
         this._release(o);
         this.active.splice(i, 1);
       }

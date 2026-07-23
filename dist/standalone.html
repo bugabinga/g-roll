@@ -417,6 +417,37 @@ body {
 .hud-speed-track { position: absolute; left: 22px; right: 22px; bottom: 44px; height: 3px; background: rgba(255,255,255,0.08); border-radius: 2px; }
 .hud-speed-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--gold), var(--blood-bright)); border-radius: 2px; box-shadow: 0 0 12px rgba(255,42,42,0.6); transition: width 0.2s ease; }
 
+/* ---------- THE COLLAPSE: dread gauge + creeping veil + lore beats ---------- */
+.hud-collapse { position: absolute; left: 22px; right: 22px; bottom: 22px; display: flex; align-items: center; gap: 9px; }
+.hud-collapse-label { font-family: 'Cinzel', serif; font-size: 9.5px; letter-spacing: 0.18em; color: rgba(200,150,140,0.6); white-space: nowrap; }
+.hud-collapse-track { flex: 1 1 auto; height: 3px; background: rgba(255,255,255,0.07); border-radius: 2px; overflow: hidden; }
+.hud-collapse-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #3a1010, #b81c1c); border-radius: 2px; box-shadow: 0 0 10px rgba(200,30,30,0.5); transition: width 0.25s ease; }
+.hud-collapse.danger .hud-collapse-label { color: #ff6a5a; animation: pulse 0.8s infinite; }
+.hud-collapse.danger .hud-collapse-fill { background: linear-gradient(90deg, #7a1010, #ff3a2a); box-shadow: 0 0 16px rgba(255,50,30,0.8); }
+
+/* the veil floods up from the bottom edge as the cave-in closes in */
+#collapse-veil {
+  position: fixed; inset: 0; z-index: 8; pointer-events: none; opacity: 0;
+  transition: opacity 0.3s ease;
+  background:
+    radial-gradient(120% 70% at 50% 118%, rgba(120,10,10,0.55) 0%, rgba(30,4,4,0.35) 40%, rgba(0,0,0,0) 70%),
+    linear-gradient(0deg, rgba(6,2,2,0.7) 0%, rgba(6,2,2,0) 38%);
+}
+
+#lore-flash {
+  position: fixed; left: 0; right: 0; top: 30%; z-index: 16; pointer-events: none;
+  text-align: center; font-family: 'EB Garamond', serif; font-style: italic;
+  font-size: clamp(16px, 4.4vw, 22px); color: #e9d7c2; opacity: 0;
+  text-shadow: 0 0 22px rgba(180,20,20,0.7), 0 2px 6px #000; padding: 0 8vw; text-wrap: balance;
+}
+#lore-flash.show { animation: loreBeat 3.4s ease-in-out both; }
+@keyframes loreBeat {
+  0% { opacity: 0; transform: translateY(10px) scale(0.98); letter-spacing: 0.2em; }
+  14% { opacity: 1; transform: none; letter-spacing: 0.04em; }
+  78% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
 /* ---------- GTA-style death flash ---------- */
 #game.dead-fx { filter: grayscale(0.5) contrast(1.18) brightness(0.74) saturate(1.15); transition: filter 0.4s ease; }
 #death-flash {
@@ -487,6 +518,8 @@ body {
 <canvas id="game"></canvas>
 <div id="vignette"></div>
 <div id="death-flash"><div class="df-text">YOU DIED</div></div>
+<div id="collapse-veil"></div>
+<div id="lore-flash"></div>
 <div id="lootbox-anim">
   <div class="chest">
     <div class="chest-burst"></div>
@@ -518,6 +551,10 @@ body {
   </div>
   <div id="hud-debuffs" class="hud-debuffs"></div>
   <div class="hud-speed-track"><div id="hud-speed" class="hud-speed-fill"></div></div>
+  <div id="hud-collapse" class="hud-collapse">
+    <span class="hud-collapse-label">THE COLLAPSE</span>
+    <div class="hud-collapse-track"><div id="hud-collapse-fill" class="hud-collapse-fill"></div></div>
+  </div>
 </div>
 
 <div id="screen-menu" class="screen">
@@ -56533,6 +56570,11 @@ class Spawner {
   update(dt, speed, player) {
     this._t += dt;
     const fury = this.opts.hazardFury ? 2.0 : 1.0;
+    // per-frame chase signals: obstacles that leave behind the player this frame.
+    // A hazard in YOUR lane that you survived = a near-miss (you jumped/rolled it);
+    // one in another lane = a clean dodge. The Collapse reads these.
+    this.nearMiss = 0; this.passedClean = 0;
+    const plane = player ? player.laneIndex : 1;
 
     // scroll obstacles toward the camera; beasts charge extra fast
     for (let i = this.active.length - 1; i >= 0; i--) {
@@ -56555,6 +56597,10 @@ class Spawner {
         o.mesh.userData.flames.children.forEach((f) => { f.scale.y = 0.7 + Math.random() * 0.7; f.scale.x = 0.85 + Math.random() * 0.3; });
       }
       if (o.z > CONFIG.despawnBehind) {
+        // it just slipped behind the player alive → a near-miss or a clean dodge
+        if (o.type !== 'pad' && o.type !== 'platform') {
+          if (o.lane === -1 || o.lane === plane) this.nearMiss++; else this.passedClean++;
+        }
         this._release(o);
         this.active.splice(i, 1);
       }
@@ -57326,6 +57372,24 @@ class UI {
     g.classList.remove('pop'); void g.offsetWidth; g.classList.add('pop');
   }
 
+  // The Collapse: drive the creeping dread veil + the HUD "collapse" gauge (0..1).
+  setCollapse(near) {
+    const veil = $('collapse-veil');
+    if (veil) veil.style.opacity = (near * 0.72).toFixed(3);
+    const bar = $('hud-collapse-fill');
+    if (bar) bar.style.width = (Math.min(1, near) * 100).toFixed(0) + '%';
+    const wrap = $('hud-collapse');
+    if (wrap) wrap.classList.toggle('danger', near > 0.8);
+  }
+
+  // A brief lore beat as you outrun the cave-in (the collapse mini-story).
+  flashLore(text) {
+    const el = $('lore-flash');
+    if (!el) return;
+    el.textContent = text;
+    el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
+  }
+
   // -- death -----------------------------------------------------------------
   showGameOver(data) {
     this._hideAll();
@@ -57367,6 +57431,16 @@ class UI {
 
 
 
+
+// The collapse's mini-story — beats that flash as you outrun the cave-in.
+const COLLAPSE_LORE = [
+  { dist: 350,  text: 'The nave gives way behind you.' },
+  { dist: 850,  text: 'Pillars fall like felled trees — do not look back.' },
+  { dist: 1600, text: 'The cathedral is eating itself to reach you.' },
+  { dist: 2600, text: 'It has swallowed the altar. Still it comes.' },
+  { dist: 4000, text: 'A god\'s house, falling forever — and you, still ahead of it.' },
+];
+
 class Game {
   constructor() {
     this.canvas = document.getElementById('game');
@@ -57385,6 +57459,8 @@ class Game {
     this.blood = new Blood(this.world.scene);
     this.sparks = new Sparks(this.world.scene);
     this.gibs = new Gibs(this.world.scene);
+    this.collapse = new Collapse(this.world.scene);   // the cathedral caving in at your heels
+    this.collapse.hide();
     this.spawner = new Spawner(this.world.scene, {});
 
     this.input = new Input();
@@ -57482,6 +57558,8 @@ class Game {
       nextChoiceAt: 40,       // seconds of play until the next forced wound
       debuffs: [],            // ids of wounds taken this run
       jumps: 0, rolls: 0,     // action tallies for daily quests
+      dread: 0.12,            // how close the Collapse is (0..1, cinematic)
+      loreAt: 0,              // index of the next collapse lore beat
     };
 
     this.player.reset();          // rolls this run's character
@@ -57489,6 +57567,7 @@ class Game {
     this.blood.reset();
     this.sparks.reset();
     this.gibs.reset();
+    this.collapse.reset();        // the cave-in resets to a distant rumble
     this.input.clear();
     this.input.enabled = false;   // the intro is non-interactive
 
@@ -57512,6 +57591,9 @@ class Game {
     this.embers.update(dt, 2.5, this.world.camera.position.z);
     this.blood.update(dt);
     this.sparks.update(dt);
+    // the cave-in looms right behind during the showcase, then falls back as you bolt
+    this.collapse.setProximity(0.7 - prep * 0.5);
+    this.collapse.update(dt);
     this.player.introUpdate(dt, prep);
 
     // camera: close hero shot, gently orbiting, then lerp back to the game view
@@ -57560,6 +57642,8 @@ class Game {
     d.apply(this);
     this.run.gemYield += d.gemBonus;
     this.run.debuffs.push(d.id);
+    this.run.dread = Math.min(0.9, this.run.dread + 0.16);   // you paused — the cave-in gained
+    this.collapse.addLunge(1);
     this.run.nextChoiceAt += 40;
     this.ui.hideChoice();
     this.audio.roll();          // a wet, resigned whoosh as the wound takes hold
@@ -57586,6 +57670,8 @@ class Game {
     const soulColor = this.player.soul ? this.player.soul.color.getHex() : 0xffa23a;
     this.blood.burst(p.x, p.y + 1.0, p.z);
     this.gibs.burst(p.x, p.y + 0.9, p.z, soulColor, bomb ? 1.5 : 1.0);
+    this.collapse.crush();                           // the cave-in floods forward to bury you
+    this.ui.setCollapse(1);
     this.player.hide();                              // the intact body is gone — only gibs remain
     if (bomb) {
       this.sparks.burst(p.x, p.y + 0.8, p.z, 1.8);   // fiery blast
@@ -57603,6 +57689,8 @@ class Game {
     this.canvas.classList.remove('dead-fx');
     const flash = document.getElementById('death-flash');
     if (flash) flash.classList.remove('show');
+    this.collapse.hide();                 // the cave-in stills once the run is over
+    this.ui.setCollapse(0);
     Save.addGems(r.gems);
     const { newBest } = Save.recordRun(Math.floor(r.score), r.distance);
     const record = newBest && r.score > 0;
@@ -57697,6 +57785,22 @@ class Game {
       });
     if (hit) { this.die(hit); return; }
 
+    // -- THE COLLAPSE: relentless creep, calmed by clean dodging, surged by risk.
+    //    Cinematic only — it never kills you; crashing into a hazard does.
+    r.dread = Math.min(0.9, r.dread + dt * 0.013);
+    if (this.spawner.passedClean) r.dread = Math.max(0, r.dread - this.spawner.passedClean * 0.02);
+    if (this.spawner.nearMiss) this.collapse.addLunge(0.4 * this.spawner.nearMiss);   // it snaps at each close shave
+    this.collapse.setProximity(r.dread);
+    const near = this.collapse.update(dt);
+    this.ui.setCollapse(near);
+    if (near > 0.82) this.world.addShake(0.06 * (near - 0.82) / 0.18);   // rumble when it's on you
+
+    // the collapse mini-story: flash a beat as you pass each distance milestone
+    if (r.loreAt < COLLAPSE_LORE.length && r.distance >= COLLAPSE_LORE[r.loreAt].dist) {
+      this.ui.flashLore(COLLAPSE_LORE[r.loreAt].text);
+      r.loreAt++;
+    }
+
     // heartbeat quickens with speed; music escalates with time survived
     const speedPct = (r.speed - r.settings.startSpeed) / (r.settings.maxSpeed - r.settings.startSpeed);
     const clampedSpeed = THREE.MathUtils.clamp(speedPct, 0, 1);
@@ -57725,6 +57829,7 @@ class Game {
     this.blood.update(dt);
     this.sparks.update(dt);
     this.gibs.update(dt);                 // limbs fly in real time over the death beat
+    this.collapse.update(dt);             // the rubble surges over the wreck
     if (r.dieTimer <= 0) this.finishRun();
   }
 

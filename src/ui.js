@@ -512,6 +512,24 @@ export class UI {
     g.classList.remove('pop'); void g.offsetWidth; g.classList.add('pop');
   }
 
+  // The Collapse: drive the creeping dread veil + the HUD "collapse" gauge (0..1).
+  setCollapse(near) {
+    const veil = $('collapse-veil');
+    if (veil) veil.style.opacity = (near * 0.72).toFixed(3);
+    const bar = $('hud-collapse-fill');
+    if (bar) bar.style.width = (Math.min(1, near) * 100).toFixed(0) + '%';
+    const wrap = $('hud-collapse');
+    if (wrap) wrap.classList.toggle('danger', near > 0.8);
+  }
+
+  // A brief lore beat as you outrun the cave-in (the collapse mini-story).
+  flashLore(text) {
+    const el = $('lore-flash');
+    if (!el) return;
+    el.textContent = text;
+    el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
+  }
+
   // -- death -----------------------------------------------------------------
   showGameOver(data) {
     this._hideAll();
