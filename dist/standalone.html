@@ -55318,14 +55318,8 @@ class World {
       // NOTE: no per-segment PointLight — those are the main mobile perf killer.
       // The fixed action-zone torches in _buildLights supply the flicker instead.
 
-      // arch overhead every other segment
-      if (i % 2 === 0) {
-        const arch = new THREE.Mesh(new THREE.TorusGeometry(HALL_W/2 + 0.7, 0.28, 6, 12, Math.PI), pillarMat);
-        arch.rotation.z = Math.PI;
-        arch.position.set(0, 4.4, 0);
-        arch.scale.y = 0.8;
-        seg.add(arch);
-      }
+      // (Overhead arch removed — its flipped half-torus sagged down across the
+      //  road at torso height and read as an ugly brown band spanning the lanes.)
 
       seg.position.z = -i * SEG;
       this.scene.add(seg);
