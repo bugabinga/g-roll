@@ -4,7 +4,7 @@
 // ============================================================================
 
 import { Save } from './save.js';
-import { CURSES, curseById, debuffById, questTemplateById, questRarityById } from './config.js';
+import { CURSES, curseById, debuffById, questTemplateById, questRarityById, LEGENDS } from './config.js';
 import { SKINS } from './player.js';
 
 const $ = (id) => document.getElementById(id);
@@ -195,7 +195,27 @@ export class UI {
         </div>`;
       list.appendChild(el);
     }
-    $('codex-count').textContent = `${owned} / ${SKINS.length} souls bound`;
+
+    // --- Legends of the Descent: world/Collapse lore, unlocked by depth reached
+    const best = Save.bestDistance;
+    let known = 0;
+    const head = document.createElement('div');
+    head.className = 'codex-section-head';
+    head.innerHTML = 'Legends of the Descent';
+    list.appendChild(head);
+    for (const lg of LEGENDS) {
+      const unlocked = best >= lg.need;
+      if (unlocked) known++;
+      const el = document.createElement('div');
+      el.className = 'codex-legend' + (unlocked ? '' : ' locked');
+      el.innerHTML = unlocked
+        ? `<div class="codex-head"><span class="codex-name">${lg.name}</span><span class="codex-state">✦ known</span></div>
+           <p class="codex-story">${lg.text}</p>`
+        : `<div class="codex-head"><span class="codex-name">???</span><span class="codex-state">reach ${lg.need.toLocaleString()} m</span></div>
+           <p class="codex-story locked-text">A truth that only the deep descent will uncover.</p>`;
+      list.appendChild(el);
+    }
+    $('codex-count').textContent = `${owned} / ${SKINS.length} souls bound · ${known} / ${LEGENDS.length} legends`;
   }
 
   // -- Daily Quests ---------------------------------------------------------

@@ -240,6 +240,28 @@ export function rollQuestRarity() {
   return pool[0];
 }
 
+// ----------------------------------------------------------------------------
+//  LEGENDS — lore of the descent itself, unlocked into the Codex as you go
+//  deeper (by lifetime best distance). The story of the world and its Collapse.
+// ----------------------------------------------------------------------------
+export const LEGENDS = [
+  { id: 'descent', name: 'The Descent', need: 0,
+    text: "There is no bottom. There is only further down, and the promise — never once kept — that the falling will someday stop." },
+  { id: 'collapse', name: 'The Collapse', need: 0,
+    text: "The cathedral does not chase you. It falls, endlessly, and you merely happen to be in the path of its falling. To slow is to be buried. To roll is the only prayer it has never answered." },
+  { id: 'runes', name: 'The Crimson Runes', need: 300,
+    text: "You call them gems. They are the cooled blood of everything the corridor has already taken — and in gathering them, you are counted among the taken." },
+  { id: 'altar', name: 'The Altar of Curses', need: 800,
+    text: "No power is sold here, only suffering — and suffering pays in glory. The altar asks only what you will give up to fall faster, see less, and be worth more when you land." },
+  { id: 'bloodmoon', name: 'The Blood Moon', need: 1500,
+    text: "When the moon drowns, the corridor doubles its hunger and doubles your worth. The fearless run beneath it. The wise do not run at all." },
+  { id: 'godtree', name: 'The Dead God-Tree', need: 2600,
+    text: "On the horizon it stands — gold-leafed, long dead — the thing everyone runs toward and no soul has ever reached. Perhaps it is the way out. Perhaps it is only the hook." },
+  { id: 'warden', name: 'What Falls Last', need: 4200,
+    text: "Run far enough and you learn the cruellest thing: the Collapse is a soul too, damned to fall forever, and it hunts you only because falling alone is the one horror worse than being caught." },
+];
+export function legendById(id) { return LEGENDS.find((l) => l.id === id); }
+
 // Five distinct quest templates, each with its own rolled rarity.
 export function generateDailyQuests() {
   const tpls = QUEST_TEMPLATES.slice().sort(() => Math.random() - 0.5).slice(0, 5);

@@ -321,6 +321,13 @@ body {
 .codex-entry:not(.locked) .codex-state { color: var(--gold); }
 .codex-story { font-size: 13.5px; color: #a49e90; line-height: 1.42; margin-top: 5px; }
 
+/* legends of the descent (world/Collapse lore) */
+.codex-section-head { margin: 20px 2px 4px; font-family: 'Cinzel', serif; font-size: 14px; letter-spacing: 0.16em; text-transform: uppercase; color: #c99; text-shadow: 0 0 16px rgba(180,20,20,0.4); border-top: 1px solid rgba(180,60,60,0.22); padding-top: 16px; }
+.codex-legend { padding: 12px 15px; border: 1px solid rgba(150,40,40,0.28); border-left: 3px solid rgba(200,40,40,0.55); border-radius: 3px; background: linear-gradient(180deg, rgba(40,12,12,0.4), rgba(14,10,10,0.55)); }
+.codex-legend.locked { opacity: 0.6; border-left-color: rgba(120,110,90,0.4); background: rgba(16,14,12,0.5); }
+.codex-legend .codex-name { font-family: 'Cinzel', serif; font-size: 15.5px; color: #ecd7c2; }
+.codex-legend .locked-text { font-style: italic; color: #7d766a; }
+
 /* ---------- daily quests ---------- */
 .quests-list { display: flex; flex-direction: column; gap: 11px; margin-bottom: 16px; }
 .quest {
@@ -54000,6 +54007,28 @@ function rollQuestRarity() {
   return pool[0];
 }
 
+// ----------------------------------------------------------------------------
+//  LEGENDS — lore of the descent itself, unlocked into the Codex as you go
+//  deeper (by lifetime best distance). The story of the world and its Collapse.
+// ----------------------------------------------------------------------------
+const LEGENDS = [
+  { id: 'descent', name: 'The Descent', need: 0,
+    text: "There is no bottom. There is only further down, and the promise — never once kept — that the falling will someday stop." },
+  { id: 'collapse', name: 'The Collapse', need: 0,
+    text: "The cathedral does not chase you. It falls, endlessly, and you merely happen to be in the path of its falling. To slow is to be buried. To roll is the only prayer it has never answered." },
+  { id: 'runes', name: 'The Crimson Runes', need: 300,
+    text: "You call them gems. They are the cooled blood of everything the corridor has already taken — and in gathering them, you are counted among the taken." },
+  { id: 'altar', name: 'The Altar of Curses', need: 800,
+    text: "No power is sold here, only suffering — and suffering pays in glory. The altar asks only what you will give up to fall faster, see less, and be worth more when you land." },
+  { id: 'bloodmoon', name: 'The Blood Moon', need: 1500,
+    text: "When the moon drowns, the corridor doubles its hunger and doubles your worth. The fearless run beneath it. The wise do not run at all." },
+  { id: 'godtree', name: 'The Dead God-Tree', need: 2600,
+    text: "On the horizon it stands — gold-leafed, long dead — the thing everyone runs toward and no soul has ever reached. Perhaps it is the way out. Perhaps it is only the hook." },
+  { id: 'warden', name: 'What Falls Last', need: 4200,
+    text: "Run far enough and you learn the cruellest thing: the Collapse is a soul too, damned to fall forever, and it hunts you only because falling alone is the one horror worse than being caught." },
+];
+function legendById(id) { return LEGENDS.find((l) => l.id === id); }
+
 // Five distinct quest templates, each with its own rolled rarity.
 function generateDailyQuests() {
   const tpls = QUEST_TEMPLATES.slice().sort(() => Math.random() - 0.5).slice(0, 5);
@@ -54892,6 +54921,126 @@ class Sparks {
   }
 
   reset() { this.active = 0; this.points.visible = false; for (let i=0;i<this.max;i++) this.life[i]=0; }
+}
+
+
+/* ===== collapse.js ===== */
+// ============================================================================
+//  The Collapse — the cathedral caves in at your heels. A churning wall of
+//  falling masonry, dust and dying embers hunts the camera from behind. It is
+//  never itself lethal (cinematic pressure only): its closeness is driven by a
+//  "dread" value — clean running holds it back, mistakes let it surge, and on
+//  death it floods forward to bury you. No new lights; pooled meshes + sprites.
+// ============================================================================
+
+
+const COL_W = 7.0;
+
+// soft, dark, normal-blended dust puff (the additive glow sprites brighten —
+// dust must OCCLUDE, so it gets its own smoky texture)
+let _dustTex = null;
+function dustTexture() {
+  if (_dustTex) return _dustTex;
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const x = c.getContext('2d');
+  const g = x.createRadialGradient(32, 32, 0, 32, 32, 32);
+  g.addColorStop(0, 'rgba(38,32,28,0.95)');
+  g.addColorStop(0.5, 'rgba(26,22,20,0.55)');
+  g.addColorStop(1, 'rgba(16,13,12,0)');
+  x.fillStyle = g; x.fillRect(0, 0, 64, 64);
+  _dustTex = new THREE.CanvasTexture(c);
+  return _dustTex;
+}
+function dustPuff(size) {
+  const m = new THREE.SpriteMaterial({ map: dustTexture(), transparent: true, depthWrite: false, opacity: 0.8 });
+  const s = new THREE.Sprite(m); s.scale.set(size, size, size);
+  return s;
+}
+
+class Collapse {
+  constructor(scene) {
+    this.scene = scene;
+    this.group = new THREE.Group();
+    scene.add(this.group);
+
+    const stone  = new THREE.MeshStandardMaterial({ color: 0x14141b, roughness: 1 });
+    const stone2 = new THREE.MeshStandardMaterial({ color: 0x1d1a22, roughness: 1 });
+
+    // a low, jagged heap of caved-in rubble — kept SHORT and low so even when it
+    // surges close it stays at the bottom of the frame and never masks the runner
+    for (let i = 0; i < 8; i++) {
+      const w = 1.3 + Math.random() * 2.0, h = 0.9 + Math.random() * 1.6;
+      const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, 1.0 + Math.random()), i % 2 ? stone : stone2);
+      b.position.set((Math.random() - 0.5) * (COL_W + 1), h / 2 - 0.6, (Math.random() - 0.5) * 1.4);
+      b.rotation.set((Math.random() - 0.5) * 0.4, (Math.random() - 0.5) * 0.7, (Math.random() - 0.5) * 0.5);
+      this.group.add(b);
+    }
+    // tumbling debris chunks (kept low)
+    this.debris = [];
+    for (let i = 0; i < 9; i++) {
+      const d = new THREE.Mesh(new THREE.BoxGeometry(0.3 + Math.random() * 0.45, 0.3 + Math.random() * 0.45, 0.3 + Math.random() * 0.45), stone2);
+      d.userData = { vy: -(1.5 + Math.random() * 2.5), sx: (Math.random() - 0.5) * 5, spin: (Math.random() - 0.5) * 7, top: 2 + Math.random() * 3 };
+      d.position.set((Math.random() - 0.5) * COL_W, Math.random() * 3.5, (Math.random() - 0.5) * 1.2);
+      this.group.add(d); this.debris.push(d);
+    }
+    // rolling dust plume
+    this.dust = [];
+    for (let i = 0; i < 6; i++) { const p = dustPuff(3 + Math.random() * 2.5); p.position.set((Math.random() - 0.5) * COL_W, 1.0 + Math.random() * 2.6, 0.3); this.group.add(p); this.dust.push(p); }
+    // dying embers glinting in the fall
+    this.embers = [];
+    for (let i = 0; i < 5; i++) { const e = glowSprite(0xff5a1e, 1.0 + Math.random() * 0.8); e.position.set((Math.random() - 0.5) * COL_W, 0.4 + Math.random() * 2, 0.5); this.group.add(e); this.embers.push(e); }
+
+    this.group.position.y = -0.4;   // sit the heap low in the corridor
+    this.far = 0.5;      // z when calm (distant, small, high up the corridor)
+    this.near = 4.0;     // z when it's right at your heels (still below the runner)
+    this.proximity = 0.12;
+    this.lunge = 0;
+    this.introScale = 1;   // the intro sweep towers it up for the reveal
+    this._t = 0;
+    this.reset();
+  }
+
+  reset() {
+    this.proximity = 0.12; this.lunge = 0; this.introScale = 1; this._t = 0;
+    this.group.visible = true;
+    this.group.position.set(0, -0.4, this.far);
+    this.group.scale.set(1, 1, 1);
+  }
+
+  setProximity(p) { this.proximity = THREE.MathUtils.clamp(p, 0, 1); }
+  addLunge(a = 1) { this.lunge = Math.min(1.6, this.lunge + a); }
+  crush() { this.proximity = 1; this.lunge = 1.6; }        // death: flood forward
+  hide() { this.group.visible = false; }
+
+  // returns the on-screen "closeness" (0..1) so the HUD veil can match it
+  closeness() { return THREE.MathUtils.clamp(this.proximity + this.lunge * 0.45, 0, 1); }
+
+  update(dt) {
+    if (!this.group.visible) return 0;
+    this._t += dt;
+    this.lunge = Math.max(0, this.lunge - dt * 2.4);
+    const p = this.closeness();
+    const z = THREE.MathUtils.lerp(this.far, this.near, p);
+    this.group.position.z += (z - this.group.position.z) * Math.min(1, dt * 6);
+    const s = (1 + p * 0.18) * (this.introScale || 1);    // loom a little bigger as it nears
+    this.group.scale.set(s, s, 1);
+
+    for (const d of this.debris) {
+      d.position.y += d.userData.vy * dt * 2.2;
+      d.position.x += d.userData.sx * dt * 0.3;
+      d.rotation.x += d.userData.spin * dt; d.rotation.z += d.userData.spin * 0.7 * dt;
+      if (d.position.y < -1) { d.position.y = d.userData.top; d.position.x = (Math.random() - 0.5) * COL_W; }
+    }
+    for (let i = 0; i < this.dust.length; i++) {
+      const q = this.dust[i]; const sc = 4 + Math.sin(this._t * 1.3 + i) * 1.3;
+      q.scale.set(sc, sc, sc); q.material.opacity = (0.4 + Math.sin(this._t * 0.9 + i) * 0.2) * (0.6 + p * 0.5);
+    }
+    for (let i = 0; i < this.embers.length; i++) {
+      const e = this.embers[i]; e.material.opacity = (0.4 + Math.random() * 0.5) * (0.5 + p * 0.6);
+      e.scale.setScalar(1.1 + Math.sin(this._t * 4 + i) * 0.4);
+    }
+    return p;
+  }
 }
 
 
@@ -57055,7 +57204,27 @@ class UI {
         </div>`;
       list.appendChild(el);
     }
-    $('codex-count').textContent = `${owned} / ${SKINS.length} souls bound`;
+
+    // --- Legends of the Descent: world/Collapse lore, unlocked by depth reached
+    const best = Save.bestDistance;
+    let known = 0;
+    const head = document.createElement('div');
+    head.className = 'codex-section-head';
+    head.innerHTML = 'Legends of the Descent';
+    list.appendChild(head);
+    for (const lg of LEGENDS) {
+      const unlocked = best >= lg.need;
+      if (unlocked) known++;
+      const el = document.createElement('div');
+      el.className = 'codex-legend' + (unlocked ? '' : ' locked');
+      el.innerHTML = unlocked
+        ? `<div class="codex-head"><span class="codex-name">${lg.name}</span><span class="codex-state">✦ known</span></div>
+           <p class="codex-story">${lg.text}</p>`
+        : `<div class="codex-head"><span class="codex-name">???</span><span class="codex-state">reach ${lg.need.toLocaleString()} m</span></div>
+           <p class="codex-story locked-text">A truth that only the deep descent will uncover.</p>`;
+      list.appendChild(el);
+    }
+    $('codex-count').textContent = `${owned} / ${SKINS.length} souls bound · ${known} / ${LEGENDS.length} legends`;
   }
 
   // -- Daily Quests ---------------------------------------------------------
@@ -57577,45 +57746,54 @@ class Game {
     this.state = 'intro';
   }
 
-  // ~3s pre-run showcase: a hero shot of your character, then the camera pulls
-  // back into gameplay and control is handed over.
+  // ~4s pre-run cinematic: a dramatic camera SWEEP that reveals the cathedral
+  // caving in behind the hero, arcs around them, then settles into the chase.
   _updateIntro(dt) {
     const r = this.run;
     r.introT += dt;
-    const INTRO = 3.2;
+    const INTRO = 4.2;
     const t = Math.min(1, r.introT / INTRO);
-    const prep = t < 0.68 ? 0 : (t - 0.68) / 0.32;   // ease into the run in the last third
+    const prep = t < 0.74 ? 0 : (t - 0.74) / 0.26;   // the bolt: player turns to run at the very end
+    const smooth = (a) => a * a * (3 - 2 * a);
 
-    this.world.setSpeed(2.5);
+    this.world.setSpeed(3.0);
     this.world.update(dt);                             // sets its own camera; we override below
-    this.embers.update(dt, 2.5, this.world.camera.position.z);
+    this.embers.update(dt, 3.0, this.world.camera.position.z);
     this.blood.update(dt);
     this.sparks.update(dt);
-    // the cave-in looms right behind during the showcase, then falls back as you bolt
-    this.collapse.setProximity(0.7 - prep * 0.5);
+    // the cave-in TOWERS for the reveal (boosted + close), then falls back as you bolt
+    const loom = t < 0.58 ? 0.95 : THREE.MathUtils.lerp(0.95, 0.16, (t - 0.58) / 0.42);
+    this.collapse.setProximity(loom);
+    this.collapse.introScale = t < 0.6 ? 1.6 : THREE.MathUtils.lerp(1.6, 1, (t - 0.6) / 0.4);
     this.collapse.update(dt);
     this.player.introUpdate(dt, prep);
 
-    // camera: close hero shot, gently orbiting, then lerp back to the game view
+    // --- the SWEEP: blend across three cinematic camera poses. All look at the
+    //     HERO (z≈0.6) so the crumble reads as a churning backdrop behind them,
+    //     then a 3/4 arc (front-right → hard-left → behind) settles to the chase.
+    //   [ posX, posY, posZ,  lookX, lookY, lookZ,  fov ]
+    const P0 = [ 3.6, 1.3, -3.6,  0.0, 1.55, 0.8, 72];   // low, front-right — crumble looms behind the figure
+    const P1 = [-5.2, 3.2, -0.4,  0.0, 1.70, 1.0, 66];   // swept to the hard left, craning past the collapse
+    const P2 = [ 0.0, this.world._camBaseY, 8.4,  0.0, 1.4, -6.0, 62];  // settle into the chase view
+    let a, from, to;
+    if (t < 0.5) { a = smooth(t / 0.5); from = P0; to = P1; }
+    else { a = smooth((t - 0.5) / 0.5); from = P1; to = P2; }
+    const L = (i) => THREE.MathUtils.lerp(from[i], to[i], a);
+
     const cam = this.world.camera;
-    const orbit = Math.sin(r.introT * 0.9) * 0.7;
-    const e = prep * prep * (3 - 2 * prep);
-    cam.position.set(
-      THREE.MathUtils.lerp(orbit, 0, e),
-      THREE.MathUtils.lerp(1.75, this.world._camBaseY, e),
-      THREE.MathUtils.lerp(3.9, 8.4, e),
-    );
-    cam.rotation.z = 0;
-    const lx = THREE.MathUtils.lerp(orbit * 0.4, 0, e);
-    const ly = THREE.MathUtils.lerp(1.25, 1.4, e);
-    const lz = THREE.MathUtils.lerp(0, -6, e);
-    cam.lookAt(lx, ly, lz);
+    const shimmer = (1 - prep) * 0.1;                  // faint handheld life, stills as the run starts
+    cam.position.set(L(0) + Math.sin(r.introT * 2.3) * shimmer, L(1) + Math.cos(r.introT * 1.7) * shimmer, L(2));
+    cam.fov = L(6); cam.updateProjectionMatrix();
+    cam.lookAt(L(3), L(4), L(5));
+    cam.rotation.z += (1 - prep) * Math.sin(r.introT * 0.8) * 0.035;   // subtle dutch tilt, applied after lookAt
 
     if (r.introT >= INTRO) this._startRunning();
   }
 
   _startRunning() {
     this.player.group.rotation.set(0, 0, 0);   // facing is driven by the rig now
+    this.world.camera.fov = 62; this.world.camera.updateProjectionMatrix();   // restore from the intro sweep
+    this.collapse.introScale = 1;
     this.input.clear();
     this.input.enabled = true;
     this.ui.hideIntro();

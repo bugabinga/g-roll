@@ -9,7 +9,7 @@
 import * as THREE from '../vendor/three.module.js';
 import { glowSprite } from './particles.js';
 
-const HALL_W = 7.0;
+const COL_W = 7.0;
 
 // soft, dark, normal-blended dust puff (the additive glow sprites brighten —
 // dust must OCCLUDE, so it gets its own smoky texture)
@@ -46,40 +46,37 @@ export class Collapse {
     for (let i = 0; i < 8; i++) {
       const w = 1.3 + Math.random() * 2.0, h = 0.9 + Math.random() * 1.6;
       const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, 1.0 + Math.random()), i % 2 ? stone : stone2);
-      b.position.set((Math.random() - 0.5) * (HALL_W + 1), h / 2 - 0.6, (Math.random() - 0.5) * 1.4);
+      b.position.set((Math.random() - 0.5) * (COL_W + 1), h / 2 - 0.6, (Math.random() - 0.5) * 1.4);
       b.rotation.set((Math.random() - 0.5) * 0.4, (Math.random() - 0.5) * 0.7, (Math.random() - 0.5) * 0.5);
       this.group.add(b);
     }
-    // a dark shadow band low behind the rubble to read as a bottomless cave-in
-    const back = new THREE.Mesh(new THREE.BoxGeometry(HALL_W + 6, 3.2, 0.8), new THREE.MeshBasicMaterial({ color: 0x05050a }));
-    back.position.set(0, 0.4, -1.1); this.group.add(back);
-
     // tumbling debris chunks (kept low)
     this.debris = [];
     for (let i = 0; i < 9; i++) {
       const d = new THREE.Mesh(new THREE.BoxGeometry(0.3 + Math.random() * 0.45, 0.3 + Math.random() * 0.45, 0.3 + Math.random() * 0.45), stone2);
       d.userData = { vy: -(1.5 + Math.random() * 2.5), sx: (Math.random() - 0.5) * 5, spin: (Math.random() - 0.5) * 7, top: 2 + Math.random() * 3 };
-      d.position.set((Math.random() - 0.5) * HALL_W, Math.random() * 3.5, (Math.random() - 0.5) * 1.2);
+      d.position.set((Math.random() - 0.5) * COL_W, Math.random() * 3.5, (Math.random() - 0.5) * 1.2);
       this.group.add(d); this.debris.push(d);
     }
     // rolling dust plume
     this.dust = [];
-    for (let i = 0; i < 6; i++) { const p = dustPuff(3 + Math.random() * 2.5); p.position.set((Math.random() - 0.5) * HALL_W, 1.0 + Math.random() * 2.6, 0.3); this.group.add(p); this.dust.push(p); }
+    for (let i = 0; i < 6; i++) { const p = dustPuff(3 + Math.random() * 2.5); p.position.set((Math.random() - 0.5) * COL_W, 1.0 + Math.random() * 2.6, 0.3); this.group.add(p); this.dust.push(p); }
     // dying embers glinting in the fall
     this.embers = [];
-    for (let i = 0; i < 5; i++) { const e = glowSprite(0xff5a1e, 1.0 + Math.random() * 0.8); e.position.set((Math.random() - 0.5) * HALL_W, 0.4 + Math.random() * 2, 0.5); this.group.add(e); this.embers.push(e); }
+    for (let i = 0; i < 5; i++) { const e = glowSprite(0xff5a1e, 1.0 + Math.random() * 0.8); e.position.set((Math.random() - 0.5) * COL_W, 0.4 + Math.random() * 2, 0.5); this.group.add(e); this.embers.push(e); }
 
     this.group.position.y = -0.4;   // sit the heap low in the corridor
     this.far = 0.5;      // z when calm (distant, small, high up the corridor)
     this.near = 4.0;     // z when it's right at your heels (still below the runner)
     this.proximity = 0.12;
     this.lunge = 0;
+    this.introScale = 1;   // the intro sweep towers it up for the reveal
     this._t = 0;
     this.reset();
   }
 
   reset() {
-    this.proximity = 0.12; this.lunge = 0; this._t = 0;
+    this.proximity = 0.12; this.lunge = 0; this.introScale = 1; this._t = 0;
     this.group.visible = true;
     this.group.position.set(0, -0.4, this.far);
     this.group.scale.set(1, 1, 1);
@@ -100,14 +97,14 @@ export class Collapse {
     const p = this.closeness();
     const z = THREE.MathUtils.lerp(this.far, this.near, p);
     this.group.position.z += (z - this.group.position.z) * Math.min(1, dt * 6);
-    const s = 1 + p * 0.18;                                // loom a little bigger as it nears
+    const s = (1 + p * 0.18) * (this.introScale || 1);    // loom a little bigger as it nears
     this.group.scale.set(s, s, 1);
 
     for (const d of this.debris) {
       d.position.y += d.userData.vy * dt * 2.2;
       d.position.x += d.userData.sx * dt * 0.3;
       d.rotation.x += d.userData.spin * dt; d.rotation.z += d.userData.spin * 0.7 * dt;
-      if (d.position.y < -1) { d.position.y = d.userData.top; d.position.x = (Math.random() - 0.5) * HALL_W; }
+      if (d.position.y < -1) { d.position.y = d.userData.top; d.position.x = (Math.random() - 0.5) * COL_W; }
     }
     for (let i = 0; i < this.dust.length; i++) {
       const q = this.dust[i]; const sc = 4 + Math.sin(this._t * 1.3 + i) * 1.3;

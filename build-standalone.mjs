@@ -1,7 +1,7 @@
 // Bundles G-ROLL into a single self-contained HTML page (Three.js + all modules
 // + CSS inlined). Produces dist/standalone.html (full page, for local testing)
 // and dist/artifact.html (body-only, for publishing as an Artifact).
-import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, readdir } from 'node:fs/promises';
 
 const read = (p) => readFile(new URL(p, import.meta.url), 'utf8');
 
@@ -14,8 +14,14 @@ three = three.replace('export {', 'const __THREE_NS = {') + '\nwindow.__THREE_NS
 // --- game modules, in dependency order --------------------------------------
 const order = [
   'config.js', 'save.js', 'input.js', 'audio.js', 'particles.js',
-  'player.js', 'preview.js', 'world.js', 'spawner.js', 'ui.js', 'main.js',
+  'collapse.js', 'player.js', 'preview.js', 'world.js', 'spawner.js', 'ui.js', 'main.js',
 ];
+// Guard: every module in src/ MUST be in `order`, or the bundle silently drops
+// it and the artifact crashes with "X is not defined" (import lines are stripped).
+const srcFiles = (await readdir(new URL('./src/', import.meta.url))).filter((f) => f.endsWith('.js'));
+const missing = srcFiles.filter((f) => !order.includes(f));
+if (missing.length) throw new Error(`build-standalone: src modules missing from bundle order: ${missing.join(', ')}`);
+
 let game = 'const THREE = window.__THREE_NS;\n';
 for (const f of order) {
   let src = await read('./src/' + f);

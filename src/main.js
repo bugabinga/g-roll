@@ -162,45 +162,54 @@ class Game {
     this.state = 'intro';
   }
 
-  // ~3s pre-run showcase: a hero shot of your character, then the camera pulls
-  // back into gameplay and control is handed over.
+  // ~4s pre-run cinematic: a dramatic camera SWEEP that reveals the cathedral
+  // caving in behind the hero, arcs around them, then settles into the chase.
   _updateIntro(dt) {
     const r = this.run;
     r.introT += dt;
-    const INTRO = 3.2;
+    const INTRO = 4.2;
     const t = Math.min(1, r.introT / INTRO);
-    const prep = t < 0.68 ? 0 : (t - 0.68) / 0.32;   // ease into the run in the last third
+    const prep = t < 0.74 ? 0 : (t - 0.74) / 0.26;   // the bolt: player turns to run at the very end
+    const smooth = (a) => a * a * (3 - 2 * a);
 
-    this.world.setSpeed(2.5);
+    this.world.setSpeed(3.0);
     this.world.update(dt);                             // sets its own camera; we override below
-    this.embers.update(dt, 2.5, this.world.camera.position.z);
+    this.embers.update(dt, 3.0, this.world.camera.position.z);
     this.blood.update(dt);
     this.sparks.update(dt);
-    // the cave-in looms right behind during the showcase, then falls back as you bolt
-    this.collapse.setProximity(0.7 - prep * 0.5);
+    // the cave-in TOWERS for the reveal (boosted + close), then falls back as you bolt
+    const loom = t < 0.58 ? 0.95 : THREE.MathUtils.lerp(0.95, 0.16, (t - 0.58) / 0.42);
+    this.collapse.setProximity(loom);
+    this.collapse.introScale = t < 0.6 ? 1.6 : THREE.MathUtils.lerp(1.6, 1, (t - 0.6) / 0.4);
     this.collapse.update(dt);
     this.player.introUpdate(dt, prep);
 
-    // camera: close hero shot, gently orbiting, then lerp back to the game view
+    // --- the SWEEP: blend across three cinematic camera poses. All look at the
+    //     HERO (z≈0.6) so the crumble reads as a churning backdrop behind them,
+    //     then a 3/4 arc (front-right → hard-left → behind) settles to the chase.
+    //   [ posX, posY, posZ,  lookX, lookY, lookZ,  fov ]
+    const P0 = [ 3.6, 1.3, -3.6,  0.0, 1.55, 0.8, 72];   // low, front-right — crumble looms behind the figure
+    const P1 = [-5.2, 3.2, -0.4,  0.0, 1.70, 1.0, 66];   // swept to the hard left, craning past the collapse
+    const P2 = [ 0.0, this.world._camBaseY, 8.4,  0.0, 1.4, -6.0, 62];  // settle into the chase view
+    let a, from, to;
+    if (t < 0.5) { a = smooth(t / 0.5); from = P0; to = P1; }
+    else { a = smooth((t - 0.5) / 0.5); from = P1; to = P2; }
+    const L = (i) => THREE.MathUtils.lerp(from[i], to[i], a);
+
     const cam = this.world.camera;
-    const orbit = Math.sin(r.introT * 0.9) * 0.7;
-    const e = prep * prep * (3 - 2 * prep);
-    cam.position.set(
-      THREE.MathUtils.lerp(orbit, 0, e),
-      THREE.MathUtils.lerp(1.75, this.world._camBaseY, e),
-      THREE.MathUtils.lerp(3.9, 8.4, e),
-    );
-    cam.rotation.z = 0;
-    const lx = THREE.MathUtils.lerp(orbit * 0.4, 0, e);
-    const ly = THREE.MathUtils.lerp(1.25, 1.4, e);
-    const lz = THREE.MathUtils.lerp(0, -6, e);
-    cam.lookAt(lx, ly, lz);
+    const shimmer = (1 - prep) * 0.1;                  // faint handheld life, stills as the run starts
+    cam.position.set(L(0) + Math.sin(r.introT * 2.3) * shimmer, L(1) + Math.cos(r.introT * 1.7) * shimmer, L(2));
+    cam.fov = L(6); cam.updateProjectionMatrix();
+    cam.lookAt(L(3), L(4), L(5));
+    cam.rotation.z += (1 - prep) * Math.sin(r.introT * 0.8) * 0.035;   // subtle dutch tilt, applied after lookAt
 
     if (r.introT >= INTRO) this._startRunning();
   }
 
   _startRunning() {
     this.player.group.rotation.set(0, 0, 0);   // facing is driven by the rig now
+    this.world.camera.fov = 62; this.world.camera.updateProjectionMatrix();   // restore from the intro sweep
+    this.collapse.introScale = 1;
     this.input.clear();
     this.input.enabled = true;
     this.ui.hideIntro();
