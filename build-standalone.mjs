@@ -31,6 +31,13 @@ const body = `
 <canvas id="game"></canvas>
 <div id="vignette"></div>
 <div id="death-flash"><div class="df-text">YOU DIED</div></div>
+<div id="screen-intro">
+  <div class="intro-inner">
+    <div class="intro-eyebrow">YOU RISE AS</div>
+    <div id="intro-name" class="intro-name">The Hollow Knight</div>
+    <div class="intro-ready" id="intro-ready">Steel yourself…</div>
+  </div>
+</div>
 
 <div id="hud">
   <div class="hud-top">
@@ -100,6 +107,7 @@ const body = `
   <div class="panel center">
     <div class="died">YOU DIED</div>
     <div id="go-record" class="record">NEW GLORY RECORD</div>
+    <div id="go-motivate" class="motivate"></div>
     <div class="go-score" id="go-score">0</div>
     <div class="go-mult">glory <span id="go-mult">×1.00</span></div>
     <div class="go-line" id="go-dist">0 m</div>

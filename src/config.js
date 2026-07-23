@@ -105,37 +105,37 @@ export function curseById(id) {
 // ----------------------------------------------------------------------------
 export const DEBUFFS = [
   {
-    id: 'quicken', name: 'Quicken', tier: 2, gemBonus: 1.0,
-    desc: 'The floor drags harder. A sudden surge of speed.',
-    apply: (g) => { g.run.settings.startSpeed += 6; g.run.settings.maxSpeed += 6; },
+    id: 'quicken', name: 'Quicken', tier: 2, gemBonus: 1.1,
+    desc: 'The floor drags hard. A violent surge of speed.',
+    apply: (g) => { g.run.settings.startSpeed += 10; g.run.settings.maxSpeed += 11; },
   },
   {
-    id: 'frenzy', name: 'Frenzy', tier: 3, gemBonus: 1.75,
+    id: 'frenzy', name: 'Frenzy', tier: 3, gemBonus: 1.9,
     desc: 'Blinding pace and ever-quickening dread. Speed and acceleration soar.',
-    apply: (g) => { g.run.settings.startSpeed += 9; g.run.settings.maxSpeed += 9; g.run.settings.accel += 0.12; },
+    apply: (g) => { g.run.settings.startSpeed += 14; g.run.settings.maxSpeed += 15; g.run.settings.accel += 0.22; },
   },
   {
-    id: 'onrush', name: 'Onrush', tier: 3, gemBonus: 1.6,
-    desc: 'The dead press closer. Obstacles pack much tighter together.',
+    id: 'onrush', name: 'Onrush', tier: 3, gemBonus: 1.75,
+    desc: 'The dead swarm. Obstacles crush together into a gauntlet.',
     apply: (g) => {
       const o = g.spawner.opts;
-      o.baseGap = Math.max(9, (o.baseGap ?? 19) * 0.8);
-      o.minGap = Math.max(7, (o.minGap ?? 11) * 0.84);
+      o.baseGap = Math.max(7.5, (o.baseGap ?? 19) * 0.65);
+      o.minGap = Math.max(5.5, (o.minGap ?? 11) * 0.7);
     },
   },
   {
-    id: 'gloom', name: 'Gloom', tier: 1, gemBonus: 0.6,
-    desc: 'The mist thickens. Obstacles surface later from the dark.',
-    apply: (g) => { g.world.setFogDensity(Math.min(0.06, g.world.fog.density + 0.012)); },
+    id: 'gloom', name: 'Gloom', tier: 2, gemBonus: 0.9,
+    desc: 'The mist smothers you. Obstacles lunge out of the dark far too late.',
+    apply: (g) => { g.world.setFogDensity(Math.min(0.075, g.world.fog.density + 0.022)); },
   },
   {
-    id: 'bloodhunt', name: 'Bloodhunt', tier: 2, gemBonus: 1.1,
-    desc: 'The beasts hunger. Charging hazards move faster and reach further.',
-    apply: (g) => { g.spawner.opts.hazardFury = true; },
+    id: 'bloodhunt', name: 'Bloodhunt', tier: 3, gemBonus: 1.5,
+    desc: 'The beasts are ravenous — faster, further, relentless — and everything hurries.',
+    apply: (g) => { g.spawner.opts.hazardFury = true; g.run.settings.startSpeed += 4; g.run.settings.maxSpeed += 6; },
   },
   {
-    id: 'vertigo', name: 'Vertigo', tier: 1, gemBonus: 0.7,
-    desc: 'The world will not hold still. The camera sways with dread.',
+    id: 'vertigo', name: 'Vertigo', tier: 2, gemBonus: 1.0,
+    desc: 'The world pitches and heaves. The camera lurches with sickening dread.',
     apply: (g) => { g.world.setVertigo(true); },
   },
 ];

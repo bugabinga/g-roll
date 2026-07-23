@@ -247,9 +247,9 @@ export class World {
       roll = (Math.random()-0.5) * s * 0.12;
     }
     if (this._vertigo) {
-      ox += Math.sin(this._t * 1.3) * 0.5;
-      oy += Math.cos(this._t * 0.9) * 0.25;
-      roll += Math.sin(this._t * 0.7) * 0.05;
+      ox += Math.sin(this._t * 1.6) * 0.95 + Math.sin(this._t * 3.1) * 0.3;
+      oy += Math.cos(this._t * 1.1) * 0.5;
+      roll += Math.sin(this._t * 0.8) * 0.11;
     }
     this.camera.position.x = ox;
     this.camera.position.y = this._camBaseY + oy;

@@ -167,8 +167,17 @@ body {
   margin-bottom: 6px; animation: bleedIn 1.1s ease;
 }
 @keyframes bleedIn { from { opacity: 0; letter-spacing: 0.3em; filter: blur(8px); } to { opacity: 1; filter: none; } }
-.record { color: var(--gold); font-family: 'Cinzel', serif; letter-spacing: 0.24em; font-size: 14px; margin-bottom: 12px; display: none; animation: pulse 1.4s infinite; }
+.record { color: var(--gold); font-family: 'Cinzel', serif; letter-spacing: 0.24em; font-size: 14px; margin-bottom: 8px; display: none; animation: pulse 1.4s infinite; }
 @keyframes pulse { 0%,100% { opacity: 0.5; } 50% { opacity: 1; text-shadow: 0 0 18px rgba(201,162,39,0.7); } }
+.motivate {
+  display: none; font-family: 'EB Garamond', serif; font-style: italic;
+  font-size: clamp(16px, 4.4vw, 21px); color: #f2d98a; line-height: 1.35;
+  margin: 0 auto 14px; max-width: 30ch; text-wrap: balance;
+  text-shadow: 0 0 22px rgba(201,162,39,0.45), 0 2px 4px #000;
+  animation: motivateIn 0.9s ease both;
+}
+.motivate.show { display: block; }
+@keyframes motivateIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 .go-score { font-family: 'Cinzel', serif; font-size: clamp(44px, 10vw, 68px); font-weight: 700; color: #ece3cf; line-height: 1; }
 .go-mult { color: var(--gold); font-family: 'Cinzel', serif; margin: 4px 0 16px; font-size: 17px; }
 .go-line { font-size: 17px; margin: 4px 0; color: #b9b3a6; }
@@ -254,6 +263,25 @@ body {
   #game.dead-fx { transition: none; }
 }
 
+/* ---------- pre-run intro banner ---------- */
+#screen-intro {
+  position: fixed; inset: 0; z-index: 16; pointer-events: none;
+  display: none; align-items: flex-start; justify-content: center;
+  padding-top: 11vh;
+  background: linear-gradient(180deg, rgba(2,2,6,0.72) 0%, rgba(2,2,6,0.15) 32%, transparent 55%);
+}
+#screen-intro.show { display: flex; }
+.intro-inner { text-align: center; animation: introIn 0.7s ease both; }
+@keyframes introIn { from { opacity: 0; transform: translateY(-14px); } to { opacity: 1; transform: none; } }
+.intro-eyebrow { font-family: 'Cinzel', serif; letter-spacing: 0.34em; font-size: 12.5px; color: var(--gold); margin-bottom: 8px; }
+.intro-name {
+  font-family: 'Cinzel', serif; font-weight: 900; font-size: clamp(30px, 8vw, 58px);
+  color: #f0e7d2; letter-spacing: 0.03em; text-wrap: balance;
+  text-shadow: 0 0 34px rgba(179,17,17,0.55), 0 3px 0 #000;
+}
+.intro-ready { font-family: 'EB Garamond', serif; font-style: italic; font-size: clamp(15px, 4vw, 19px); color: var(--ash-dim); margin-top: 10px; animation: readyPulse 1.1s ease-in-out infinite; }
+@keyframes readyPulse { 0%,100% { opacity: 0.45; } 50% { opacity: 1; } }
+
 /* ---------- fatal ---------- */
 #fatal { position: fixed; inset: 0; z-index: 100; display: none; align-items: center; justify-content: center; background: var(--ink); text-align: center; padding: 30px; }
 #fatal h2 { font-family: 'Cinzel', serif; color: var(--blood); margin-bottom: 10px; }
@@ -270,6 +298,13 @@ body {
 <canvas id="game"></canvas>
 <div id="vignette"></div>
 <div id="death-flash"><div class="df-text">YOU DIED</div></div>
+<div id="screen-intro">
+  <div class="intro-inner">
+    <div class="intro-eyebrow">YOU RISE AS</div>
+    <div id="intro-name" class="intro-name">The Hollow Knight</div>
+    <div class="intro-ready" id="intro-ready">Steel yourself…</div>
+  </div>
+</div>
 
 <div id="hud">
   <div class="hud-top">
@@ -339,6 +374,7 @@ body {
   <div class="panel center">
     <div class="died">YOU DIED</div>
     <div id="go-record" class="record">NEW GLORY RECORD</div>
+    <div id="go-motivate" class="motivate"></div>
     <div class="go-score" id="go-score">0</div>
     <div class="go-mult">glory <span id="go-mult">×1.00</span></div>
     <div class="go-line" id="go-dist">0 m</div>
@@ -53516,37 +53552,37 @@ function curseById(id) {
 // ----------------------------------------------------------------------------
 const DEBUFFS = [
   {
-    id: 'quicken', name: 'Quicken', tier: 2, gemBonus: 1.0,
-    desc: 'The floor drags harder. A sudden surge of speed.',
-    apply: (g) => { g.run.settings.startSpeed += 6; g.run.settings.maxSpeed += 6; },
+    id: 'quicken', name: 'Quicken', tier: 2, gemBonus: 1.1,
+    desc: 'The floor drags hard. A violent surge of speed.',
+    apply: (g) => { g.run.settings.startSpeed += 10; g.run.settings.maxSpeed += 11; },
   },
   {
-    id: 'frenzy', name: 'Frenzy', tier: 3, gemBonus: 1.75,
+    id: 'frenzy', name: 'Frenzy', tier: 3, gemBonus: 1.9,
     desc: 'Blinding pace and ever-quickening dread. Speed and acceleration soar.',
-    apply: (g) => { g.run.settings.startSpeed += 9; g.run.settings.maxSpeed += 9; g.run.settings.accel += 0.12; },
+    apply: (g) => { g.run.settings.startSpeed += 14; g.run.settings.maxSpeed += 15; g.run.settings.accel += 0.22; },
   },
   {
-    id: 'onrush', name: 'Onrush', tier: 3, gemBonus: 1.6,
-    desc: 'The dead press closer. Obstacles pack much tighter together.',
+    id: 'onrush', name: 'Onrush', tier: 3, gemBonus: 1.75,
+    desc: 'The dead swarm. Obstacles crush together into a gauntlet.',
     apply: (g) => {
       const o = g.spawner.opts;
-      o.baseGap = Math.max(9, (o.baseGap ?? 19) * 0.8);
-      o.minGap = Math.max(7, (o.minGap ?? 11) * 0.84);
+      o.baseGap = Math.max(7.5, (o.baseGap ?? 19) * 0.65);
+      o.minGap = Math.max(5.5, (o.minGap ?? 11) * 0.7);
     },
   },
   {
-    id: 'gloom', name: 'Gloom', tier: 1, gemBonus: 0.6,
-    desc: 'The mist thickens. Obstacles surface later from the dark.',
-    apply: (g) => { g.world.setFogDensity(Math.min(0.06, g.world.fog.density + 0.012)); },
+    id: 'gloom', name: 'Gloom', tier: 2, gemBonus: 0.9,
+    desc: 'The mist smothers you. Obstacles lunge out of the dark far too late.',
+    apply: (g) => { g.world.setFogDensity(Math.min(0.075, g.world.fog.density + 0.022)); },
   },
   {
-    id: 'bloodhunt', name: 'Bloodhunt', tier: 2, gemBonus: 1.1,
-    desc: 'The beasts hunger. Charging hazards move faster and reach further.',
-    apply: (g) => { g.spawner.opts.hazardFury = true; },
+    id: 'bloodhunt', name: 'Bloodhunt', tier: 3, gemBonus: 1.5,
+    desc: 'The beasts are ravenous — faster, further, relentless — and everything hurries.',
+    apply: (g) => { g.spawner.opts.hazardFury = true; g.run.settings.startSpeed += 4; g.run.settings.maxSpeed += 6; },
   },
   {
-    id: 'vertigo', name: 'Vertigo', tier: 1, gemBonus: 0.7,
-    desc: 'The world will not hold still. The camera sways with dread.',
+    id: 'vertigo', name: 'Vertigo', tier: 2, gemBonus: 1.0,
+    desc: 'The world pitches and heaves. The camera lurches with sickening dread.',
     apply: (g) => { g.world.setVertigo(true); },
   },
 ];
@@ -54297,8 +54333,10 @@ class Player {
 
   // Roll a body for this run: exactly 1-in-3 each, cosmetic only.
   _selectVariant() {
+    const NAMES = ['The Hollow Knight', 'The Bone Revenant', 'The Ember Wretch'];
     const idx = Math.floor(Math.random() * this.variants.length);
     this.variantIndex = idx;
+    this.variantName = NAMES[idx];
     for (let i = 0; i < this.variants.length; i++) this.variants[i].group.visible = (i === idx);
     const v = this.variants[idx];
     this.legL = v.legL; this.legR = v.legR;
@@ -54307,6 +54345,32 @@ class Player {
     this.soul.color.setHex(v.soulColor);
     if (v.core) this.soul.position.set(v.core.position.x, v.core.position.y, v.core.position.z + 0.05);
     return idx;
+  }
+
+  // Pre-run showcase: the figure faces the camera in a ready stance and slowly
+  // turns so you can see the body. `prep` (0..1) fades the sway as the run nears.
+  introUpdate(dt, prep = 0) {
+    const g = this.group;
+    const lerp = THREE.MathUtils.lerp;
+    this._introT += dt;
+    const t = this._introT;
+    g.position.x = 0;
+    g.scale.set(1, 1, 1);
+    g.rotation.x = 0; g.rotation.z = 0;
+    g.rotation.y = Math.sin(t * 0.9) * 0.55 * (1 - prep);   // showcase turn, settles to forward
+    g.position.y = Math.sin(t * 2.2) * 0.03;                // breathing
+
+    this.legL.rotation.x = lerp(this.legL.rotation.x, 0.12, 0.12);
+    this.legR.rotation.x = lerp(this.legR.rotation.x, -0.12, 0.12);
+    this.armL.rotation.x = lerp(this.armL.rotation.x, 0.16, 0.12);
+    this.armR.rotation.x = lerp(this.armR.rotation.x, 0.16, 0.12);
+    this.armL.rotation.z = lerp(this.armL.rotation.z, 0.32, 0.12);
+    this.armR.rotation.z = lerp(this.armR.rotation.z, -0.32, 0.12);
+    if (this.cape) this.cape.rotation.x = lerp(this.cape.rotation.x, -0.3, 0.1);
+
+    this.core.scale.setScalar(0.85 + Math.sin(t * 3) * 0.15);
+    if (this.halo) this.halo.scale.setScalar(1 + Math.sin(t * 2) * 0.22);
+    this.soul.intensity = 3.4 + Math.sin(t * 3) * 0.7;
   }
 
   // -------------------------------------------------------------------------
@@ -54399,49 +54463,58 @@ class Player {
 
   _animate(dt) {
     const g = this.group;
-    g.position.x = this.x;
-    g.position.y = this.y;
-
-    // lean into the lane change
-    const lean = (this.targetX - this.x) * -0.35;
-    g.rotation.z = THREE.MathUtils.lerp(g.rotation.z, lean, 0.2);
-
-    this._runCycle += dt * 13;
-    const s = Math.sin(this._runCycle);
     const lerp = THREE.MathUtils.lerp;
+    this._runCycle += dt * 15;                     // brisker cadence
+    const s = Math.sin(this._runCycle);
+    const grounded = !this.airborne;
+
+    // lane position + lean into a lane change
+    g.position.x = this.x;
+    const laneLean = (this.targetX - this.x) * -0.42;
+    g.rotation.z = lerp(g.rotation.z, laneLean, 0.2);
+
+    // running BOUNCE — visual only. Collision reads this.y (see get bottom/top),
+    // so the bob never changes gameplay. Two bounces per stride = a real gallop.
+    const bob = grounded ? Math.abs(Math.sin(this._runCycle)) * 0.09 : 0;
+    g.position.y = this.y + bob;
 
     if (this.airborne) {
-      // leap pose: legs tucked, arms thrown back, cape flared out
-      this.legL.rotation.x = lerp(this.legL.rotation.x, 1.15, 0.3);
-      this.legR.rotation.x = lerp(this.legR.rotation.x, 0.7, 0.3);
-      this.armL.rotation.x = lerp(this.armL.rotation.x, -1.2, 0.3);
-      this.armR.rotation.x = lerp(this.armR.rotation.x, -1.2, 0.3);
-      if (this.cape) this.cape.rotation.x = lerp(this.cape.rotation.x, -1.1, 0.25);
+      // leap: trailing leg kicks back, lead knee drives up, arms thrown wide
+      this.legL.rotation.x = lerp(this.legL.rotation.x, 1.3, 0.3);
+      this.legR.rotation.x = lerp(this.legR.rotation.x, -0.5, 0.3);
+      this.armL.rotation.x = lerp(this.armL.rotation.x, -1.5, 0.3);
+      this.armR.rotation.x = lerp(this.armR.rotation.x, -1.5, 0.3);
+      this.armL.rotation.z = lerp(this.armL.rotation.z, 0.5, 0.3);
+      this.armR.rotation.z = lerp(this.armR.rotation.z, -0.5, 0.3);
+      if (this.cape) this.cape.rotation.x = lerp(this.cape.rotation.x, -1.3, 0.25);
     } else if (!this.rolling) {
-      // sprint: legs and arms swing in opposition
-      const amp = 0.95;
+      // sprint: long driving stride, arms pumping in opposition + carried in
+      const amp = 1.28;
       this.legL.rotation.x = s * amp;
       this.legR.rotation.x = -s * amp;
-      this.armL.rotation.x = -s * amp * 0.8;
-      this.armR.rotation.x = s * amp * 0.8;
-      if (this.cape) this.cape.rotation.x = lerp(this.cape.rotation.x, -0.5 + s * 0.12, 0.3);
+      this.armL.rotation.x = -s * amp * 0.95;
+      this.armR.rotation.x =  s * amp * 0.95;
+      this.armL.rotation.z = lerp(this.armL.rotation.z, 0.2, 0.3);
+      this.armR.rotation.z = lerp(this.armR.rotation.z, -0.2, 0.3);
+      if (this.cape) this.cape.rotation.x = lerp(this.cape.rotation.x, -0.55 + s * 0.2, 0.3);
     }
 
-    // roll squash: tuck the whole figure low & spin forward
+    // roll squash: tuck low & spin forward
     const targetScaleY = this.rolling ? ROLL_HEIGHT / STAND_HEIGHT : 1;
     g.scale.y = lerp(g.scale.y, targetScaleY, 0.35);
     if (this.rolling) {
-      g.rotation.x = lerp(g.rotation.x, -Math.PI * 1.6, 0.35);
+      g.rotation.x = lerp(g.rotation.x, -Math.PI * 1.7, 0.35);
       this.legL.rotation.x = lerp(this.legL.rotation.x, 0.6, 0.4);
       this.legR.rotation.x = lerp(this.legR.rotation.x, 0.6, 0.4);
     } else {
-      g.rotation.x = lerp(g.rotation.x, 0, 0.3);
+      // lean into the sprint on the ground; upright in the air
+      g.rotation.x = lerp(g.rotation.x, grounded ? -0.12 : 0, 0.25);
     }
 
     // soul-core pulse + light flicker (its glow is what makes the figure pop)
     const pulse = 0.85 + Math.sin(this._runCycle * 0.7) * 0.15 + Math.random() * 0.1;
     this.core.scale.setScalar(pulse);
-    if (this.halo) this.halo.scale.setScalar(1 + Math.sin(this._runCycle) * 0.18);
+    if (this.halo) this.halo.scale.setScalar(1 + Math.sin(this._runCycle) * 0.2);
     this.soul.intensity = 2.8 + Math.sin(this._runCycle * 1.3) * 0.6 + Math.random() * 0.3;
   }
 
@@ -54456,6 +54529,7 @@ class Player {
     this.groundY = 0;
     this.airborne = false; this.rolling = false; this.rollTimer = 0; this.rollCooldown = 0;
     this._laneT = 1; this._coyote = 0; this.alive = true;
+    this._introT = 0;
     this._selectVariant();                 // roll a fresh body (1-in-3, cosmetic)
     this.group.visible = true;
     this.group.scale.set(1, 1, 1);
@@ -54855,9 +54929,9 @@ class World {
       roll = (Math.random()-0.5) * s * 0.12;
     }
     if (this._vertigo) {
-      ox += Math.sin(this._t * 1.3) * 0.5;
-      oy += Math.cos(this._t * 0.9) * 0.25;
-      roll += Math.sin(this._t * 0.7) * 0.05;
+      ox += Math.sin(this._t * 1.6) * 0.95 + Math.sin(this._t * 3.1) * 0.3;
+      oy += Math.cos(this._t * 1.1) * 0.5;
+      roll += Math.sin(this._t * 0.8) * 0.11;
     }
     this.camera.position.x = ox;
     this.camera.position.y = this._camBaseY + oy;
@@ -54901,15 +54975,27 @@ const MATS = {
   pit:    new THREE.MeshBasicMaterial({ color: 0x000000 }),
 };
 
-function makeLow() {          // bone spikes / tombstone — JUMP
+// Action colour-code so every hazard reads at a glance, even in the dark:
+//   AMBER = leap over · CRIMSON = roll under · CYAN = dodge to another lane
+const ACTION = { jump: 0xffb020, roll: 0xff3030, dodge: 0x35d6ff };
+const glow = (hex) => new THREE.MeshBasicMaterial({ color: hex });                 // unlit, always visible
+const glowFaint = (hex) => new THREE.MeshBasicMaterial({ color: hex, transparent: true, opacity: 0.5 });
+
+function makeLow() {          // bone spikes / tombstone — JUMP (amber)
   const g = new THREE.Group();
   const base = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.0, 0.5), MATS.stone);
   base.position.y = 0.5; g.add(base);
   for (let i = -1; i <= 1; i++) {
     const spike = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.9, 5), MATS.bone);
-    spike.position.set(i * 0.5, 1.1, 0);
-    g.add(spike);
+    spike.position.set(i * 0.5, 1.1, 0); g.add(spike);
+    const tip = new THREE.Mesh(new THREE.SphereGeometry(0.06, 5, 5), glow(ACTION.jump));
+    tip.position.set(i * 0.5, 1.5, 0); g.add(tip);
   }
+  // bright amber cap-line along the top edge = "leap this"
+  const bar = new THREE.Mesh(new THREE.BoxGeometry(1.82, 0.11, 0.12), glow(ACTION.jump));
+  bar.position.set(0, 1.02, 0.27); g.add(bar);
+  const wash = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.5, 0.05), glowFaint(ACTION.jump));
+  wash.position.set(0, 0.7, 0.27); g.add(wash);
   g.userData.type = 'low'; g.userData.depth = 0.9;
   return g;
 }
@@ -54924,10 +55010,11 @@ function makeHigh() {         // overhead gate with hanging teeth — ROLL UNDER
   // heavy lintel: the low ceiling you must duck beneath (bottom at HIGH_BOT)
   const lintel = new THREE.Mesh(new THREE.BoxGeometry(2.3, 1.8, 0.62), MATS.darkStone);
   lintel.position.y = HIGH_BOT + 0.9; g.add(lintel);
-  // a warning band on the underside so the gap reads at speed
-  const band = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.08, 0.66),
-    new THREE.MeshStandardMaterial({ color: 0x3a0000, emissive: 0xff2a2a, emissiveIntensity: 1.2, roughness: 0.5 }));
+  // bright crimson band on the underside so the low gap reads at speed = "roll"
+  const band = new THREE.Mesh(new THREE.BoxGeometry(2.16, 0.12, 0.68), glow(ACTION.roll));
   band.position.y = HIGH_BOT + 0.02; g.add(band);
+  const wash = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.6, 0.05), glowFaint(ACTION.roll));
+  wash.position.set(0, HIGH_BOT + 0.5, 0.34); g.add(wash);
   // hanging teeth pointing down — "do not stand"
   for (let i = -2; i <= 2; i++) {
     const tooth = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.42, 5), MATS.bone);
@@ -54956,26 +55043,32 @@ function makePad() {          // springboard rune — JUMP PAD (launches you up)
   return g;
 }
 
-function makeBlock() {        // sarcophagus / slab — CHANGE LANE
+function makeBlock() {        // sarcophagus / slab — CHANGE LANE (cyan)
   const g = new THREE.Group();
   const slab = new THREE.Mesh(new THREE.BoxGeometry(1.9, 2.5, 1.0), MATS.stone);
-  slab.position.y = 1.25; slab.castShadow = true; g.add(slab);
+  slab.position.y = 1.25; g.add(slab);
   const lid = new THREE.Mesh(new THREE.BoxGeometry(2.05, 0.3, 1.15), MATS.darkStone);
   lid.position.y = 2.5; g.add(lid);
-  const rune = new THREE.Mesh(new THREE.BoxGeometry(0.5, 1.2, 0.05), MATS.gold);
-  rune.position.set(0, 1.4, 0.53); g.add(rune);
+  // cyan frame on the front face = "solid wall, go around"
+  const fm = glow(ACTION.dodge);
+  for (const sy of [0.15, 2.35]) { const h = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.1, 0.08), fm); h.position.set(0, sy, 0.52); g.add(h); }
+  for (const sx of [-0.85, 0.85]) { const v = new THREE.Mesh(new THREE.BoxGeometry(0.1, 2.2, 0.08), fm); v.position.set(sx, 1.25, 0.52); g.add(v); }
+  const rune = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.9, 0.05), fm);
+  rune.position.set(0, 1.3, 0.53); g.add(rune);
   g.userData.type = 'block'; g.userData.depth = 1.0;
   return g;
 }
 
-function makeGap() {          // pit — JUMP
+function makeGap() {          // pit — JUMP (amber)
   const g = new THREE.Group();
   const hole = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.5, 3.0), MATS.pit);
   hole.position.y = -0.26; g.add(hole);
-  // jagged edges
+  // jagged edges with an amber lip line = "leap the gap"
   for (const z of [-1.4, 1.4]) {
     const edge = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.3, 0.2), MATS.stone);
     edge.position.set(0, 0.05, z); g.add(edge);
+    const lip = new THREE.Mesh(new THREE.BoxGeometry(2.12, 0.08, 0.1), glow(ACTION.jump));
+    lip.position.set(0, 0.2, z); g.add(lip);
   }
   g.userData.type = 'gap'; g.userData.depth = 3.0;
   return g;
@@ -55051,9 +55144,40 @@ function makePlatform() {       // a train — run up the ramp onto the upper la
   return g;
 }
 
+// Full-width hazards that span ALL lanes (lane = -1). No lane change escapes them.
+const ROPE_W = 6.8, ROPE_HALF = 3.3;
+function makeRopeLow() {       // taut tripwire across the whole track — JUMP (amber)
+  const g = new THREE.Group();
+  const y = 0.95;
+  const rope = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, ROPE_W, 6), new THREE.MeshStandardMaterial({ color: 0x3a2a10, roughness: 1 }));
+  rope.rotation.z = Math.PI / 2; rope.position.y = y; g.add(rope);
+  const halo = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, ROPE_W, 6), glowFaint(ACTION.jump));
+  halo.rotation.z = Math.PI / 2; halo.position.y = y; g.add(halo);
+  const core = new THREE.Mesh(new THREE.BoxGeometry(ROPE_W, 0.06, 0.06), glow(ACTION.jump)); core.position.y = y; g.add(core);
+  for (const sx of [-ROPE_HALF, ROPE_HALF]) { const post = new THREE.Mesh(new THREE.BoxGeometry(0.2, 1.5, 0.2), MATS.stone); post.position.set(sx, 0.72, 0); g.add(post); }
+  for (let i = -3; i <= 3; i++) { const fr = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.24, 4), glow(ACTION.jump)); fr.position.set(i * 0.9, y - 0.2, 0); fr.rotation.x = Math.PI; g.add(fr); }
+  g.userData.type = 'ropeLow'; g.userData.depth = 0.7;
+  return g;
+}
+function makeRopeHigh() {      // hanging rope of teeth across the track — ROLL (crimson)
+  const g = new THREE.Group();
+  const y = HIGH_BOT + 0.6;
+  const rope = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, ROPE_W, 6), new THREE.MeshStandardMaterial({ color: 0x2a0d0d, roughness: 1 }));
+  rope.rotation.z = Math.PI / 2; rope.position.y = y; g.add(rope);
+  const halo = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, ROPE_W, 6), glowFaint(ACTION.roll));
+  halo.rotation.z = Math.PI / 2; halo.position.y = y; g.add(halo);
+  // bright crimson line at the duck-height edge
+  const core = new THREE.Mesh(new THREE.BoxGeometry(ROPE_W, 0.07, 0.07), glow(ACTION.roll)); core.position.y = HIGH_BOT + 0.04; g.add(core);
+  for (let i = -3; i <= 3; i++) { const tooth = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.42, 5), MATS.bone); tooth.position.set(i * 0.9, HIGH_BOT + 0.16, 0); tooth.rotation.x = Math.PI; g.add(tooth); }
+  for (const sx of [-ROPE_HALF, ROPE_HALF]) { const post = new THREE.Mesh(new THREE.BoxGeometry(0.2, 3.4, 0.2), MATS.stone); post.position.set(sx, 1.7, 0); g.add(post); }
+  g.userData.type = 'ropeHigh'; g.userData.depth = 0.7;
+  return g;
+}
+
 const FACTORY = {
   low: makeLow, high: makeHigh, block: makeBlock, gap: makeGap,
   beast: makeBeast, pad: makePad, bomb: makeBomb, platform: makePlatform,
+  ropeLow: makeRopeLow, ropeHigh: makeRopeHigh,
 };
 
 function makeGem() {
@@ -55108,7 +55232,7 @@ const ROWS = {
 class Spawner {
   constructor(scene, opts = {}) {
     this.scene = scene;
-    this.pools = { low: [], high: [], block: [], gap: [], beast: [], pad: [], bomb: [], platform: [] };
+    this.pools = { low: [], high: [], block: [], gap: [], beast: [], pad: [], bomb: [], platform: [], ropeLow: [], ropeHigh: [] };
     this.active = [];       // obstacles
     this.gems = [];
     this.gemPool = [];
@@ -55169,7 +55293,7 @@ class Spawner {
 
   update(dt, speed, player) {
     this._t += dt;
-    const fury = this.opts.hazardFury ? 1.6 : 1.0;
+    const fury = this.opts.hazardFury ? 2.0 : 1.0;
 
     // scroll obstacles toward the camera; beasts charge extra fast
     for (let i = this.active.length - 1; i >= 0; i--) {
@@ -55228,6 +55352,16 @@ class Spawner {
       this.active.push({ type: 'platform', lane, z, depth: mesh.userData.depth, mesh });
       this._spawnGemLine(lane, z - PLAT.L / 2 + PLAT.RAMP + 1, false, PLAT.H + 0.8);
       this._padReserve = { lane, rows: 2 };
+      return;
+    }
+
+    // --- full-width rope hazard: spans every lane, so you must leap or roll — no
+    //     lane change saves you. Its own row.
+    if (this.rowCount > 5 && !this._padReserve && Math.random() < 0.12) {
+      const type = Math.random() < 0.5 ? 'ropeLow' : 'ropeHigh';
+      const mesh = this._acquire(type);
+      mesh.position.set(0, 0, z);
+      this.active.push({ type, lane: -1, z, depth: mesh.userData.depth, mesh });
       return;
     }
 
@@ -55344,9 +55478,10 @@ class Spawner {
     player.groundY = groundH;
     if (platformDeath) return platformDeath;
 
-    // obstacles + pads + bombs
+    // obstacles + pads + bombs (lane -1 = full width, hits in any lane)
     for (const o of this.active) {
-      if (o.lane !== player.laneIndex || o.type === 'platform') continue;
+      if (o.type === 'platform') continue;
+      if (o.lane !== -1 && o.lane !== player.laneIndex) continue;
       const overlap = Math.abs(o.z) < (o.depth / 2 + PLAYER_HALF_DEPTH);
       if (!overlap) continue;
       if (o.type === 'pad') {
@@ -55371,8 +55506,10 @@ class Spawner {
 
   _fatal(o, p) {
     switch (o.type) {
-      case 'low':   return p.bottom < LOW_TOP - 0.1;        // didn't jump high enough
-      case 'high':  return p.top > HIGH_BOT + 0.05;         // didn't roll low enough
+      case 'low':
+      case 'ropeLow':  return p.bottom < LOW_TOP - 0.1;     // didn't jump high enough
+      case 'high':
+      case 'ropeHigh': return p.top > HIGH_BOT + 0.05;      // didn't roll low enough
       case 'gap':   return p.bottom < 0.35;                 // on the ground over the pit
       case 'block': return true;                            // must have avoided the lane
       case 'beast': return true;                            // must have avoided the lane
@@ -55391,6 +55528,18 @@ class Spawner {
 
 const $ = (id) => document.getElementById(id);
 const gem = '<span class="gem-ico">◆</span>';
+
+// shown when you shatter your own record — a jolt of motivation to go again
+const MOTIVATIONS = [
+  'Further than you have ever gone. The dark learns your name.',
+  'A new legend, carved in ash and blood. Do not stop now.',
+  'You surpassed yourself. Somewhere deeper still, glory waits.',
+  'Unmatched. Let the corridor fear the roll.',
+  'Your finest descent — and proof there is more in you yet.',
+  'The dead bow. Rise, and go further.',
+  'This is what mastery feels like. Chase it again.',
+  'You bent the gauntlet to your will. Now break it.',
+];
 
 class UI {
   constructor(handlers) {
@@ -55421,9 +55570,17 @@ class UI {
 
   // -- screen switching ------------------------------------------------------
   _hideAll() {
-    for (const s of ['menu', 'altar', 'gameover', 'choice']) $('screen-' + s).classList.remove('show');
+    for (const s of ['menu', 'altar', 'gameover', 'choice', 'intro']) $('screen-' + s).classList.remove('show');
     $('hud').classList.remove('show');
   }
+
+  showIntro(name) {
+    this._hideAll();
+    $('intro-name').textContent = name;
+    $('screen-intro').classList.add('show');
+  }
+
+  hideIntro() { $('screen-intro').classList.remove('show'); }
 
   showMenu() {
     this._hideAll();
@@ -55572,6 +55729,13 @@ class UI {
     $('go-bank').innerHTML = `Bank now ${gem} ${Save.bank}`;
     $('go-mult').textContent = '×' + data.mult.toFixed(2);
     $('go-record').style.display = data.newBest ? 'block' : 'none';
+    const mot = $('go-motivate');
+    if (data.newBest) {
+      mot.textContent = MOTIVATIONS[(Math.random() * MOTIVATIONS.length) | 0];
+      mot.classList.add('show');
+    } else {
+      mot.classList.remove('show');
+    }
     $('screen-gameover').classList.add('show');
     this.refreshBank();
   }
@@ -55673,14 +55837,58 @@ class Game {
       debuffs: [],            // ids of wounds taken this run
     };
 
-    this.player.reset();
+    this.player.reset();          // rolls this run's character
     this.spawner.reset();
     this.blood.reset();
     this.sparks.reset();
     this.input.clear();
-    this.input.enabled = true;
+    this.input.enabled = false;   // the intro is non-interactive
 
     this.audio.startDrone();
+    this.run.introT = 0;
+    this.ui.showIntro(this.player.variantName);
+    this.state = 'intro';
+  }
+
+  // ~3s pre-run showcase: a hero shot of your character, then the camera pulls
+  // back into gameplay and control is handed over.
+  _updateIntro(dt) {
+    const r = this.run;
+    r.introT += dt;
+    const INTRO = 3.2;
+    const t = Math.min(1, r.introT / INTRO);
+    const prep = t < 0.68 ? 0 : (t - 0.68) / 0.32;   // ease into the run in the last third
+
+    this.world.setSpeed(2.5);
+    this.world.update(dt);                             // sets its own camera; we override below
+    this.embers.update(dt, 2.5, this.world.camera.position.z);
+    this.blood.update(dt);
+    this.sparks.update(dt);
+    this.player.introUpdate(dt, prep);
+
+    // camera: close hero shot, gently orbiting, then lerp back to the game view
+    const cam = this.world.camera;
+    const orbit = Math.sin(r.introT * 0.9) * 0.7;
+    const e = prep * prep * (3 - 2 * prep);
+    cam.position.set(
+      THREE.MathUtils.lerp(orbit, 0, e),
+      THREE.MathUtils.lerp(1.75, this.world._camBaseY, e),
+      THREE.MathUtils.lerp(3.9, 8.4, e),
+    );
+    cam.rotation.z = 0;
+    const lx = THREE.MathUtils.lerp(orbit * 0.4, 0, e);
+    const ly = THREE.MathUtils.lerp(1.25, 1.4, e);
+    const lz = THREE.MathUtils.lerp(0, -6, e);
+    cam.lookAt(lx, ly, lz);
+
+    if (r.introT >= INTRO) this._startRunning();
+  }
+
+  _startRunning() {
+    this.player.group.rotation.y = 0;    // face forward for the run
+    this.input.clear();
+    this.input.enabled = true;
+    this.ui.hideIntro();
     this.ui.showHUD();
     this.state = 'playing';
   }
@@ -55765,6 +55973,7 @@ class Game {
 
     try {
       if (this.state === 'playing') this._updatePlay(dt);
+      else if (this.state === 'intro') this._updateIntro(dt);
       else if (this.state === 'dying') this._updateDying(dt);
       else if (this.state === 'choosing') { /* frozen: render the paused scene only */ }
       else this._updateIdle(dt);

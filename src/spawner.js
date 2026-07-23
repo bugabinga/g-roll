@@ -27,15 +27,27 @@ const MATS = {
   pit:    new THREE.MeshBasicMaterial({ color: 0x000000 }),
 };
 
-function makeLow() {          // bone spikes / tombstone — JUMP
+// Action colour-code so every hazard reads at a glance, even in the dark:
+//   AMBER = leap over · CRIMSON = roll under · CYAN = dodge to another lane
+const ACTION = { jump: 0xffb020, roll: 0xff3030, dodge: 0x35d6ff };
+const glow = (hex) => new THREE.MeshBasicMaterial({ color: hex });                 // unlit, always visible
+const glowFaint = (hex) => new THREE.MeshBasicMaterial({ color: hex, transparent: true, opacity: 0.5 });
+
+function makeLow() {          // bone spikes / tombstone — JUMP (amber)
   const g = new THREE.Group();
   const base = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.0, 0.5), MATS.stone);
   base.position.y = 0.5; g.add(base);
   for (let i = -1; i <= 1; i++) {
     const spike = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.9, 5), MATS.bone);
-    spike.position.set(i * 0.5, 1.1, 0);
-    g.add(spike);
+    spike.position.set(i * 0.5, 1.1, 0); g.add(spike);
+    const tip = new THREE.Mesh(new THREE.SphereGeometry(0.06, 5, 5), glow(ACTION.jump));
+    tip.position.set(i * 0.5, 1.5, 0); g.add(tip);
   }
+  // bright amber cap-line along the top edge = "leap this"
+  const bar = new THREE.Mesh(new THREE.BoxGeometry(1.82, 0.11, 0.12), glow(ACTION.jump));
+  bar.position.set(0, 1.02, 0.27); g.add(bar);
+  const wash = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.5, 0.05), glowFaint(ACTION.jump));
+  wash.position.set(0, 0.7, 0.27); g.add(wash);
   g.userData.type = 'low'; g.userData.depth = 0.9;
   return g;
 }
@@ -50,10 +62,11 @@ function makeHigh() {         // overhead gate with hanging teeth — ROLL UNDER
   // heavy lintel: the low ceiling you must duck beneath (bottom at HIGH_BOT)
   const lintel = new THREE.Mesh(new THREE.BoxGeometry(2.3, 1.8, 0.62), MATS.darkStone);
   lintel.position.y = HIGH_BOT + 0.9; g.add(lintel);
-  // a warning band on the underside so the gap reads at speed
-  const band = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.08, 0.66),
-    new THREE.MeshStandardMaterial({ color: 0x3a0000, emissive: 0xff2a2a, emissiveIntensity: 1.2, roughness: 0.5 }));
+  // bright crimson band on the underside so the low gap reads at speed = "roll"
+  const band = new THREE.Mesh(new THREE.BoxGeometry(2.16, 0.12, 0.68), glow(ACTION.roll));
   band.position.y = HIGH_BOT + 0.02; g.add(band);
+  const wash = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.6, 0.05), glowFaint(ACTION.roll));
+  wash.position.set(0, HIGH_BOT + 0.5, 0.34); g.add(wash);
   // hanging teeth pointing down — "do not stand"
   for (let i = -2; i <= 2; i++) {
     const tooth = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.42, 5), MATS.bone);
@@ -82,26 +95,32 @@ function makePad() {          // springboard rune — JUMP PAD (launches you up)
   return g;
 }
 
-function makeBlock() {        // sarcophagus / slab — CHANGE LANE
+function makeBlock() {        // sarcophagus / slab — CHANGE LANE (cyan)
   const g = new THREE.Group();
   const slab = new THREE.Mesh(new THREE.BoxGeometry(1.9, 2.5, 1.0), MATS.stone);
-  slab.position.y = 1.25; slab.castShadow = true; g.add(slab);
+  slab.position.y = 1.25; g.add(slab);
   const lid = new THREE.Mesh(new THREE.BoxGeometry(2.05, 0.3, 1.15), MATS.darkStone);
   lid.position.y = 2.5; g.add(lid);
-  const rune = new THREE.Mesh(new THREE.BoxGeometry(0.5, 1.2, 0.05), MATS.gold);
-  rune.position.set(0, 1.4, 0.53); g.add(rune);
+  // cyan frame on the front face = "solid wall, go around"
+  const fm = glow(ACTION.dodge);
+  for (const sy of [0.15, 2.35]) { const h = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.1, 0.08), fm); h.position.set(0, sy, 0.52); g.add(h); }
+  for (const sx of [-0.85, 0.85]) { const v = new THREE.Mesh(new THREE.BoxGeometry(0.1, 2.2, 0.08), fm); v.position.set(sx, 1.25, 0.52); g.add(v); }
+  const rune = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.9, 0.05), fm);
+  rune.position.set(0, 1.3, 0.53); g.add(rune);
   g.userData.type = 'block'; g.userData.depth = 1.0;
   return g;
 }
 
-function makeGap() {          // pit — JUMP
+function makeGap() {          // pit — JUMP (amber)
   const g = new THREE.Group();
   const hole = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.5, 3.0), MATS.pit);
   hole.position.y = -0.26; g.add(hole);
-  // jagged edges
+  // jagged edges with an amber lip line = "leap the gap"
   for (const z of [-1.4, 1.4]) {
     const edge = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.3, 0.2), MATS.stone);
     edge.position.set(0, 0.05, z); g.add(edge);
+    const lip = new THREE.Mesh(new THREE.BoxGeometry(2.12, 0.08, 0.1), glow(ACTION.jump));
+    lip.position.set(0, 0.2, z); g.add(lip);
   }
   g.userData.type = 'gap'; g.userData.depth = 3.0;
   return g;
@@ -177,9 +196,40 @@ function makePlatform() {       // a train — run up the ramp onto the upper la
   return g;
 }
 
+// Full-width hazards that span ALL lanes (lane = -1). No lane change escapes them.
+const ROPE_W = 6.8, ROPE_HALF = 3.3;
+function makeRopeLow() {       // taut tripwire across the whole track — JUMP (amber)
+  const g = new THREE.Group();
+  const y = 0.95;
+  const rope = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, ROPE_W, 6), new THREE.MeshStandardMaterial({ color: 0x3a2a10, roughness: 1 }));
+  rope.rotation.z = Math.PI / 2; rope.position.y = y; g.add(rope);
+  const halo = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, ROPE_W, 6), glowFaint(ACTION.jump));
+  halo.rotation.z = Math.PI / 2; halo.position.y = y; g.add(halo);
+  const core = new THREE.Mesh(new THREE.BoxGeometry(ROPE_W, 0.06, 0.06), glow(ACTION.jump)); core.position.y = y; g.add(core);
+  for (const sx of [-ROPE_HALF, ROPE_HALF]) { const post = new THREE.Mesh(new THREE.BoxGeometry(0.2, 1.5, 0.2), MATS.stone); post.position.set(sx, 0.72, 0); g.add(post); }
+  for (let i = -3; i <= 3; i++) { const fr = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.24, 4), glow(ACTION.jump)); fr.position.set(i * 0.9, y - 0.2, 0); fr.rotation.x = Math.PI; g.add(fr); }
+  g.userData.type = 'ropeLow'; g.userData.depth = 0.7;
+  return g;
+}
+function makeRopeHigh() {      // hanging rope of teeth across the track — ROLL (crimson)
+  const g = new THREE.Group();
+  const y = HIGH_BOT + 0.6;
+  const rope = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, ROPE_W, 6), new THREE.MeshStandardMaterial({ color: 0x2a0d0d, roughness: 1 }));
+  rope.rotation.z = Math.PI / 2; rope.position.y = y; g.add(rope);
+  const halo = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, ROPE_W, 6), glowFaint(ACTION.roll));
+  halo.rotation.z = Math.PI / 2; halo.position.y = y; g.add(halo);
+  // bright crimson line at the duck-height edge
+  const core = new THREE.Mesh(new THREE.BoxGeometry(ROPE_W, 0.07, 0.07), glow(ACTION.roll)); core.position.y = HIGH_BOT + 0.04; g.add(core);
+  for (let i = -3; i <= 3; i++) { const tooth = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.42, 5), MATS.bone); tooth.position.set(i * 0.9, HIGH_BOT + 0.16, 0); tooth.rotation.x = Math.PI; g.add(tooth); }
+  for (const sx of [-ROPE_HALF, ROPE_HALF]) { const post = new THREE.Mesh(new THREE.BoxGeometry(0.2, 3.4, 0.2), MATS.stone); post.position.set(sx, 1.7, 0); g.add(post); }
+  g.userData.type = 'ropeHigh'; g.userData.depth = 0.7;
+  return g;
+}
+
 const FACTORY = {
   low: makeLow, high: makeHigh, block: makeBlock, gap: makeGap,
   beast: makeBeast, pad: makePad, bomb: makeBomb, platform: makePlatform,
+  ropeLow: makeRopeLow, ropeHigh: makeRopeHigh,
 };
 
 function makeGem() {
@@ -234,7 +284,7 @@ const ROWS = {
 export class Spawner {
   constructor(scene, opts = {}) {
     this.scene = scene;
-    this.pools = { low: [], high: [], block: [], gap: [], beast: [], pad: [], bomb: [], platform: [] };
+    this.pools = { low: [], high: [], block: [], gap: [], beast: [], pad: [], bomb: [], platform: [], ropeLow: [], ropeHigh: [] };
     this.active = [];       // obstacles
     this.gems = [];
     this.gemPool = [];
@@ -295,7 +345,7 @@ export class Spawner {
 
   update(dt, speed, player) {
     this._t += dt;
-    const fury = this.opts.hazardFury ? 1.6 : 1.0;
+    const fury = this.opts.hazardFury ? 2.0 : 1.0;
 
     // scroll obstacles toward the camera; beasts charge extra fast
     for (let i = this.active.length - 1; i >= 0; i--) {
@@ -354,6 +404,16 @@ export class Spawner {
       this.active.push({ type: 'platform', lane, z, depth: mesh.userData.depth, mesh });
       this._spawnGemLine(lane, z - PLAT.L / 2 + PLAT.RAMP + 1, false, PLAT.H + 0.8);
       this._padReserve = { lane, rows: 2 };
+      return;
+    }
+
+    // --- full-width rope hazard: spans every lane, so you must leap or roll — no
+    //     lane change saves you. Its own row.
+    if (this.rowCount > 5 && !this._padReserve && Math.random() < 0.12) {
+      const type = Math.random() < 0.5 ? 'ropeLow' : 'ropeHigh';
+      const mesh = this._acquire(type);
+      mesh.position.set(0, 0, z);
+      this.active.push({ type, lane: -1, z, depth: mesh.userData.depth, mesh });
       return;
     }
 
@@ -470,9 +530,10 @@ export class Spawner {
     player.groundY = groundH;
     if (platformDeath) return platformDeath;
 
-    // obstacles + pads + bombs
+    // obstacles + pads + bombs (lane -1 = full width, hits in any lane)
     for (const o of this.active) {
-      if (o.lane !== player.laneIndex || o.type === 'platform') continue;
+      if (o.type === 'platform') continue;
+      if (o.lane !== -1 && o.lane !== player.laneIndex) continue;
       const overlap = Math.abs(o.z) < (o.depth / 2 + PLAYER_HALF_DEPTH);
       if (!overlap) continue;
       if (o.type === 'pad') {
@@ -497,8 +558,10 @@ export class Spawner {
 
   _fatal(o, p) {
     switch (o.type) {
-      case 'low':   return p.bottom < LOW_TOP - 0.1;        // didn't jump high enough
-      case 'high':  return p.top > HIGH_BOT + 0.05;         // didn't roll low enough
+      case 'low':
+      case 'ropeLow':  return p.bottom < LOW_TOP - 0.1;     // didn't jump high enough
+      case 'high':
+      case 'ropeHigh': return p.top > HIGH_BOT + 0.05;      // didn't roll low enough
       case 'gap':   return p.bottom < 0.35;                 // on the ground over the pit
       case 'block': return true;                            // must have avoided the lane
       case 'beast': return true;                            // must have avoided the lane

@@ -52,8 +52,10 @@ export class Player {
 
   // Roll a body for this run: exactly 1-in-3 each, cosmetic only.
   _selectVariant() {
+    const NAMES = ['The Hollow Knight', 'The Bone Revenant', 'The Ember Wretch'];
     const idx = Math.floor(Math.random() * this.variants.length);
     this.variantIndex = idx;
+    this.variantName = NAMES[idx];
     for (let i = 0; i < this.variants.length; i++) this.variants[i].group.visible = (i === idx);
     const v = this.variants[idx];
     this.legL = v.legL; this.legR = v.legR;
@@ -62,6 +64,32 @@ export class Player {
     this.soul.color.setHex(v.soulColor);
     if (v.core) this.soul.position.set(v.core.position.x, v.core.position.y, v.core.position.z + 0.05);
     return idx;
+  }
+
+  // Pre-run showcase: the figure faces the camera in a ready stance and slowly
+  // turns so you can see the body. `prep` (0..1) fades the sway as the run nears.
+  introUpdate(dt, prep = 0) {
+    const g = this.group;
+    const lerp = THREE.MathUtils.lerp;
+    this._introT += dt;
+    const t = this._introT;
+    g.position.x = 0;
+    g.scale.set(1, 1, 1);
+    g.rotation.x = 0; g.rotation.z = 0;
+    g.rotation.y = Math.sin(t * 0.9) * 0.55 * (1 - prep);   // showcase turn, settles to forward
+    g.position.y = Math.sin(t * 2.2) * 0.03;                // breathing
+
+    this.legL.rotation.x = lerp(this.legL.rotation.x, 0.12, 0.12);
+    this.legR.rotation.x = lerp(this.legR.rotation.x, -0.12, 0.12);
+    this.armL.rotation.x = lerp(this.armL.rotation.x, 0.16, 0.12);
+    this.armR.rotation.x = lerp(this.armR.rotation.x, 0.16, 0.12);
+    this.armL.rotation.z = lerp(this.armL.rotation.z, 0.32, 0.12);
+    this.armR.rotation.z = lerp(this.armR.rotation.z, -0.32, 0.12);
+    if (this.cape) this.cape.rotation.x = lerp(this.cape.rotation.x, -0.3, 0.1);
+
+    this.core.scale.setScalar(0.85 + Math.sin(t * 3) * 0.15);
+    if (this.halo) this.halo.scale.setScalar(1 + Math.sin(t * 2) * 0.22);
+    this.soul.intensity = 3.4 + Math.sin(t * 3) * 0.7;
   }
 
   // -------------------------------------------------------------------------
@@ -154,49 +182,58 @@ export class Player {
 
   _animate(dt) {
     const g = this.group;
-    g.position.x = this.x;
-    g.position.y = this.y;
-
-    // lean into the lane change
-    const lean = (this.targetX - this.x) * -0.35;
-    g.rotation.z = THREE.MathUtils.lerp(g.rotation.z, lean, 0.2);
-
-    this._runCycle += dt * 13;
-    const s = Math.sin(this._runCycle);
     const lerp = THREE.MathUtils.lerp;
+    this._runCycle += dt * 15;                     // brisker cadence
+    const s = Math.sin(this._runCycle);
+    const grounded = !this.airborne;
+
+    // lane position + lean into a lane change
+    g.position.x = this.x;
+    const laneLean = (this.targetX - this.x) * -0.42;
+    g.rotation.z = lerp(g.rotation.z, laneLean, 0.2);
+
+    // running BOUNCE — visual only. Collision reads this.y (see get bottom/top),
+    // so the bob never changes gameplay. Two bounces per stride = a real gallop.
+    const bob = grounded ? Math.abs(Math.sin(this._runCycle)) * 0.09 : 0;
+    g.position.y = this.y + bob;
 
     if (this.airborne) {
-      // leap pose: legs tucked, arms thrown back, cape flared out
-      this.legL.rotation.x = lerp(this.legL.rotation.x, 1.15, 0.3);
-      this.legR.rotation.x = lerp(this.legR.rotation.x, 0.7, 0.3);
-      this.armL.rotation.x = lerp(this.armL.rotation.x, -1.2, 0.3);
-      this.armR.rotation.x = lerp(this.armR.rotation.x, -1.2, 0.3);
-      if (this.cape) this.cape.rotation.x = lerp(this.cape.rotation.x, -1.1, 0.25);
+      // leap: trailing leg kicks back, lead knee drives up, arms thrown wide
+      this.legL.rotation.x = lerp(this.legL.rotation.x, 1.3, 0.3);
+      this.legR.rotation.x = lerp(this.legR.rotation.x, -0.5, 0.3);
+      this.armL.rotation.x = lerp(this.armL.rotation.x, -1.5, 0.3);
+      this.armR.rotation.x = lerp(this.armR.rotation.x, -1.5, 0.3);
+      this.armL.rotation.z = lerp(this.armL.rotation.z, 0.5, 0.3);
+      this.armR.rotation.z = lerp(this.armR.rotation.z, -0.5, 0.3);
+      if (this.cape) this.cape.rotation.x = lerp(this.cape.rotation.x, -1.3, 0.25);
     } else if (!this.rolling) {
-      // sprint: legs and arms swing in opposition
-      const amp = 0.95;
+      // sprint: long driving stride, arms pumping in opposition + carried in
+      const amp = 1.28;
       this.legL.rotation.x = s * amp;
       this.legR.rotation.x = -s * amp;
-      this.armL.rotation.x = -s * amp * 0.8;
-      this.armR.rotation.x = s * amp * 0.8;
-      if (this.cape) this.cape.rotation.x = lerp(this.cape.rotation.x, -0.5 + s * 0.12, 0.3);
+      this.armL.rotation.x = -s * amp * 0.95;
+      this.armR.rotation.x =  s * amp * 0.95;
+      this.armL.rotation.z = lerp(this.armL.rotation.z, 0.2, 0.3);
+      this.armR.rotation.z = lerp(this.armR.rotation.z, -0.2, 0.3);
+      if (this.cape) this.cape.rotation.x = lerp(this.cape.rotation.x, -0.55 + s * 0.2, 0.3);
     }
 
-    // roll squash: tuck the whole figure low & spin forward
+    // roll squash: tuck low & spin forward
     const targetScaleY = this.rolling ? ROLL_HEIGHT / STAND_HEIGHT : 1;
     g.scale.y = lerp(g.scale.y, targetScaleY, 0.35);
     if (this.rolling) {
-      g.rotation.x = lerp(g.rotation.x, -Math.PI * 1.6, 0.35);
+      g.rotation.x = lerp(g.rotation.x, -Math.PI * 1.7, 0.35);
       this.legL.rotation.x = lerp(this.legL.rotation.x, 0.6, 0.4);
       this.legR.rotation.x = lerp(this.legR.rotation.x, 0.6, 0.4);
     } else {
-      g.rotation.x = lerp(g.rotation.x, 0, 0.3);
+      // lean into the sprint on the ground; upright in the air
+      g.rotation.x = lerp(g.rotation.x, grounded ? -0.12 : 0, 0.25);
     }
 
     // soul-core pulse + light flicker (its glow is what makes the figure pop)
     const pulse = 0.85 + Math.sin(this._runCycle * 0.7) * 0.15 + Math.random() * 0.1;
     this.core.scale.setScalar(pulse);
-    if (this.halo) this.halo.scale.setScalar(1 + Math.sin(this._runCycle) * 0.18);
+    if (this.halo) this.halo.scale.setScalar(1 + Math.sin(this._runCycle) * 0.2);
     this.soul.intensity = 2.8 + Math.sin(this._runCycle * 1.3) * 0.6 + Math.random() * 0.3;
   }
 
@@ -211,6 +248,7 @@ export class Player {
     this.groundY = 0;
     this.airborne = false; this.rolling = false; this.rollTimer = 0; this.rollCooldown = 0;
     this._laneT = 1; this._coyote = 0; this.alive = true;
+    this._introT = 0;
     this._selectVariant();                 // roll a fresh body (1-in-3, cosmetic)
     this.group.visible = true;
     this.group.scale.set(1, 1, 1);

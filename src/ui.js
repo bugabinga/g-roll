@@ -9,6 +9,18 @@ import { CURSES, curseById, debuffById } from './config.js';
 const $ = (id) => document.getElementById(id);
 const gem = '<span class="gem-ico">◆</span>';
 
+// shown when you shatter your own record — a jolt of motivation to go again
+const MOTIVATIONS = [
+  'Further than you have ever gone. The dark learns your name.',
+  'A new legend, carved in ash and blood. Do not stop now.',
+  'You surpassed yourself. Somewhere deeper still, glory waits.',
+  'Unmatched. Let the corridor fear the roll.',
+  'Your finest descent — and proof there is more in you yet.',
+  'The dead bow. Rise, and go further.',
+  'This is what mastery feels like. Chase it again.',
+  'You bent the gauntlet to your will. Now break it.',
+];
+
 export class UI {
   constructor(handlers) {
     this.h = handlers;         // { onBegin, onAltar, onMenu, onMute }
@@ -38,9 +50,17 @@ export class UI {
 
   // -- screen switching ------------------------------------------------------
   _hideAll() {
-    for (const s of ['menu', 'altar', 'gameover', 'choice']) $('screen-' + s).classList.remove('show');
+    for (const s of ['menu', 'altar', 'gameover', 'choice', 'intro']) $('screen-' + s).classList.remove('show');
     $('hud').classList.remove('show');
   }
+
+  showIntro(name) {
+    this._hideAll();
+    $('intro-name').textContent = name;
+    $('screen-intro').classList.add('show');
+  }
+
+  hideIntro() { $('screen-intro').classList.remove('show'); }
 
   showMenu() {
     this._hideAll();
@@ -189,6 +209,13 @@ export class UI {
     $('go-bank').innerHTML = `Bank now ${gem} ${Save.bank}`;
     $('go-mult').textContent = '×' + data.mult.toFixed(2);
     $('go-record').style.display = data.newBest ? 'block' : 'none';
+    const mot = $('go-motivate');
+    if (data.newBest) {
+      mot.textContent = MOTIVATIONS[(Math.random() * MOTIVATIONS.length) | 0];
+      mot.classList.add('show');
+    } else {
+      mot.classList.remove('show');
+    }
     $('screen-gameover').classList.add('show');
     this.refreshBank();
   }

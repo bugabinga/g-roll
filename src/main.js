@@ -94,14 +94,58 @@ class Game {
       debuffs: [],            // ids of wounds taken this run
     };
 
-    this.player.reset();
+    this.player.reset();          // rolls this run's character
     this.spawner.reset();
     this.blood.reset();
     this.sparks.reset();
     this.input.clear();
-    this.input.enabled = true;
+    this.input.enabled = false;   // the intro is non-interactive
 
     this.audio.startDrone();
+    this.run.introT = 0;
+    this.ui.showIntro(this.player.variantName);
+    this.state = 'intro';
+  }
+
+  // ~3s pre-run showcase: a hero shot of your character, then the camera pulls
+  // back into gameplay and control is handed over.
+  _updateIntro(dt) {
+    const r = this.run;
+    r.introT += dt;
+    const INTRO = 3.2;
+    const t = Math.min(1, r.introT / INTRO);
+    const prep = t < 0.68 ? 0 : (t - 0.68) / 0.32;   // ease into the run in the last third
+
+    this.world.setSpeed(2.5);
+    this.world.update(dt);                             // sets its own camera; we override below
+    this.embers.update(dt, 2.5, this.world.camera.position.z);
+    this.blood.update(dt);
+    this.sparks.update(dt);
+    this.player.introUpdate(dt, prep);
+
+    // camera: close hero shot, gently orbiting, then lerp back to the game view
+    const cam = this.world.camera;
+    const orbit = Math.sin(r.introT * 0.9) * 0.7;
+    const e = prep * prep * (3 - 2 * prep);
+    cam.position.set(
+      THREE.MathUtils.lerp(orbit, 0, e),
+      THREE.MathUtils.lerp(1.75, this.world._camBaseY, e),
+      THREE.MathUtils.lerp(3.9, 8.4, e),
+    );
+    cam.rotation.z = 0;
+    const lx = THREE.MathUtils.lerp(orbit * 0.4, 0, e);
+    const ly = THREE.MathUtils.lerp(1.25, 1.4, e);
+    const lz = THREE.MathUtils.lerp(0, -6, e);
+    cam.lookAt(lx, ly, lz);
+
+    if (r.introT >= INTRO) this._startRunning();
+  }
+
+  _startRunning() {
+    this.player.group.rotation.y = 0;    // face forward for the run
+    this.input.clear();
+    this.input.enabled = true;
+    this.ui.hideIntro();
     this.ui.showHUD();
     this.state = 'playing';
   }
@@ -186,6 +230,7 @@ class Game {
 
     try {
       if (this.state === 'playing') this._updatePlay(dt);
+      else if (this.state === 'intro') this._updateIntro(dt);
       else if (this.state === 'dying') this._updateDying(dt);
       else if (this.state === 'choosing') { /* frozen: render the paused scene only */ }
       else this._updateIdle(dt);
