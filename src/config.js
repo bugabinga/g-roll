@@ -24,8 +24,9 @@ export const CONFIG = {
   despawnBehind: 14,       // how far behind the camera before recycle
 
   // --- difficulty ---------------------------------------------------------
-  baseObstacleGap: 25,     // metres between obstacle rows at start (roomy, Subway-Surfers feel)
-  minObstacleGap: 14,      // tightest spacing at top speed
+  baseObstacleGap: 29,     // metres between obstacle rows at start (roomy, Subway-Surfers feel)
+  minObstacleGap: 18,      // tightest spacing at top speed (kept dodge-able)
+  scoreGrace: 5,           // seconds at the start with no score/gems (you're just warming up)
   gemChance: 0.62,         // chance a slot spawns a gem arc
 
   // --- scoring ------------------------------------------------------------
@@ -175,3 +176,19 @@ export const DEBUFFS = [
 export function debuffById(id) {
   return DEBUFFS.find((d) => d.id === id);
 }
+
+// ----------------------------------------------------------------------------
+//  CHALLENGE FORTUNES — in Challenge mode, each run rolls one of these at the
+//  start. You might be blessed (more gems) or cursed (faster, foggier). Every
+//  fortune that speeds you up also widens the gaps so it stays dodge-able.
+//  apply(s, ctx): s = run settings, ctx = { gemYield, visual }.
+// ----------------------------------------------------------------------------
+export const CHALLENGES = [
+  { id: 'twin',     name: 'Twin Runes',    tone: 'good',  desc: 'Fortune smiles — DOUBLE gems this run!', apply: (s, ctx) => { ctx.gemYield = 2; } },
+  { id: 'blessed',  name: 'Blessed',       tone: 'good',  desc: 'Every rune worth ×1.5.',                 apply: (s, ctx) => { ctx.gemYield = 1.5; } },
+  { id: 'frenzied', name: 'Frenzied',      tone: 'bad',   desc: 'A cursed pace — nearly DOUBLE speed.',   apply: (s) => { s.startSpeed *= 1.9; s.maxSpeed *= 1.7; s.baseObstacleGap *= 1.7; s.minObstacleGap *= 1.7; } },
+  { id: 'swarmed',  name: 'Swarmed',       tone: 'bad',   desc: 'The dead crowd in — a tighter gauntlet.', apply: (s) => { s.baseObstacleGap *= 0.82; s.minObstacleGap *= 0.85; } },
+  { id: 'fogbound', name: 'Fogbound',      tone: 'bad',   desc: 'A smothering mist swallows the road.',   apply: (s) => { s.fogDensity = 0.055; } },
+  { id: 'bloodpact', name: 'Bloodpact',    tone: 'mixed', desc: 'The blood moon rises — ×2 speed AND ×2 gems.', apply: (s, ctx) => { s.startSpeed *= 2; s.maxSpeed *= 1.9; s.baseObstacleGap *= 1.9; s.minObstacleGap *= 1.9; ctx.gemYield = 2; ctx.visual = 'bloodmoon'; } },
+  { id: 'featherlight', name: 'Featherlight', tone: 'good', desc: 'A gentle, roomy run — and ×1.5 gems.', apply: (s, ctx) => { s.baseObstacleGap *= 1.25; s.minObstacleGap *= 1.25; ctx.gemYield = 1.5; } },
+];

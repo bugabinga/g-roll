@@ -477,15 +477,8 @@ export class Spawner {
       return;
     }
 
-    // --- full-width rope hazard: spans every lane, so you must leap or roll — no
-    //     lane change saves you. Its own row.
-    if (this.rowCount > 5 && !this._padReserve && Math.random() < 0.12) {
-      const type = Math.random() < 0.5 ? 'ropeLow' : 'ropeHigh';
-      const mesh = this._acquire(type);
-      mesh.position.set(0, 0, z);
-      this.active.push({ type, lane: -1, z, depth: mesh.userData.depth, mesh });
-      return;
-    }
+    // (Full-width rope hazards removed — the band spanning the whole road read as
+    //  an ugly ribbon. Lane-based hazards carry the difficulty instead.)
 
     // --- jump-pad breather row: a springboard in one lane, rest clear. The next
     //     couple of rows keep that lane open (+ gems) so the launch is rewarded
@@ -545,6 +538,7 @@ export class Spawner {
   }
 
   _spawnGemLine(lane, z, arc, baseY = 1.0) {
+    if (this.noGems) return;    // warm-up grace: no runes on the empty opening road
     const count = 4 + ((Math.random() * 3) | 0);
     for (let i = 0; i < count; i++) {
       const gz = z + i * 1.6;

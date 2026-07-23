@@ -5,7 +5,7 @@
 // ============================================================================
 
 import * as THREE from '../vendor/three.module.js';
-import { CONFIG, CURSES, curseById, DEBUFFS } from './config.js';
+import { CONFIG, CURSES, curseById, DEBUFFS, CHALLENGES } from './config.js';
 import { Save } from './save.js';
 import { Input } from './input.js';
 import { Audio } from './audio.js';
@@ -89,13 +89,26 @@ class Game {
     let mult = 1;
     for (const id of active) { const c = curseById(id); if (c) { c.apply(s); mult *= c.mult; } }
 
-    // atmosphere mode chosen in Settings: day / night / bloodmoon
-    const mode = Save.mode;
-    this.world.setMode(mode);
+    // mode chosen in Settings: day / night / bloodmoon / challenge
+    const chosen = Save.mode;
+    let visual = chosen, gemYield = 1, fortune = null;
+    if (chosen === 'challenge') {
+      // roll a random fortune — lucky or unlucky
+      fortune = CHALLENGES[(Math.random() * CHALLENGES.length) | 0];
+      const ctx = { gemYield: 1, visual: ['night', 'day', 'bloodmoon'][(Math.random() * 3) | 0] };
+      fortune.apply(s, ctx);
+      visual = ctx.visual; gemYield = ctx.gemYield;
+    } else if (chosen === 'bloodmoon') {
+      // 2x faster — but widen the gaps so it stays survivable
+      s.startSpeed *= 2; s.maxSpeed *= 2;
+      s.baseObstacleGap *= 1.8; s.minObstacleGap *= 1.8;
+      gemYield = 2;
+    }
+    this.world.setMode(visual);
     this.world.setGround(Save.ground);
-    if (mode === 'day') s.fogDensity *= 0.72;
-    if (mode === 'bloodmoon') { s.startSpeed *= 2; s.maxSpeed *= 2; }   // 2x faster
-    this._bloodmoon = (mode === 'bloodmoon');
+    if (visual === 'day') s.fogDensity *= 0.72;
+    this._runGemYield = gemYield;
+    this._fortune = fortune;
 
     // Push settings into the systems.
     this.world.setFogDensity(s.fogDensity);
@@ -110,7 +123,8 @@ class Game {
       settings: s, mult, elapsed: 0, speed: s.startSpeed,
       distance: 0, score: 0, bonus: 0, gems: 0, curses: active.slice(),
       dieTimer: 0,
-      gemYield: this._bloodmoon ? 2 : 1,   // Bloodmoon doubles every rune's worth
+      gemYield: this._runGemYield,   // Bloodmoon / fortunes scale every rune's worth
+      fortune: this._fortune,        // the rolled Challenge fortune (null otherwise)
       nextChoiceAt: 40,       // seconds of play until the next forced wound
       debuffs: [],            // ids of wounds taken this run
     };
@@ -124,7 +138,7 @@ class Game {
 
     this.audio.startDrone();
     this.run.introT = 0;
-    this.ui.showIntro(this.player.variantName);
+    this.ui.showIntro(this.player.variantName, this._fortune);
     this.state = 'intro';
   }
 
@@ -267,8 +281,14 @@ class Game {
     const r = this.run;
     r.elapsed += dt;
     r.speed = Math.min(r.settings.maxSpeed, r.settings.startSpeed + r.settings.accel * r.elapsed);
-    r.distance += r.speed * dt * 0.5;                 // metres (0.5 = feel tuning)
-    r.score = r.distance * CONFIG.distanceToScore * r.mult + r.bonus;
+    // Warm-up grace: the first few seconds are empty road — no gems, no score —
+    // so you never bank points before you've had a single obstacle to dodge.
+    const warming = r.elapsed < CONFIG.scoreGrace;
+    this.spawner.noGems = warming;
+    if (!warming) {
+      r.distance += r.speed * dt * 0.5;               // metres (0.5 = feel tuning)
+      r.score = r.distance * CONFIG.distanceToScore * r.mult + r.bonus;
+    }
 
     // input → intents
     this.input.update(dt);

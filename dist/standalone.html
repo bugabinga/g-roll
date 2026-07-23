@@ -336,7 +336,6 @@ body {
 }
 .hud-speed-track { position: absolute; left: 22px; right: 22px; bottom: 44px; height: 3px; background: rgba(255,255,255,0.08); border-radius: 2px; }
 .hud-speed-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--gold), var(--blood-bright)); border-radius: 2px; box-shadow: 0 0 12px rgba(255,42,42,0.6); transition: width 0.2s ease; }
-.hud-hint { position: absolute; left: 0; right: 0; bottom: 16px; text-align: center; font-size: 12.5px; color: rgba(160,150,130,0.5); font-style: italic; }
 
 /* ---------- GTA-style death flash ---------- */
 #game.dead-fx { filter: grayscale(0.92) contrast(1.12) brightness(0.72) sepia(0.25); transition: filter 0.5s ease; }
@@ -381,6 +380,16 @@ body {
 }
 .intro-ready { font-family: 'EB Garamond', serif; font-style: italic; font-size: clamp(15px, 4vw, 19px); color: var(--ash-dim); margin-top: 10px; animation: readyPulse 1.1s ease-in-out infinite; }
 @keyframes readyPulse { 0%,100% { opacity: 0.45; } 50% { opacity: 1; } }
+.intro-fortune {
+  display: none; font-family: 'EB Garamond', serif; font-size: clamp(14px, 3.6vw, 18px);
+  max-width: 30ch; margin: 12px auto 0; padding: 7px 16px; border-radius: 10px;
+  text-wrap: balance; line-height: 1.35; border: 1px solid transparent;
+}
+.intro-fortune.show { display: block; animation: fortuneRise 0.5s ease-out both; }
+.intro-fortune.good  { color: #ffe6a6; background: rgba(90,70,20,0.35);  border-color: rgba(240,200,90,0.5);  text-shadow: 0 0 18px rgba(240,200,90,0.5); }
+.intro-fortune.bad   { color: #ffb0b0; background: rgba(90,20,20,0.38);  border-color: rgba(240,70,70,0.55);  text-shadow: 0 0 18px rgba(240,60,60,0.55); }
+.intro-fortune.mixed { color: #e9c4ff; background: rgba(70,30,90,0.36);  border-color: rgba(190,110,240,0.5); text-shadow: 0 0 18px rgba(190,110,240,0.5); }
+@keyframes fortuneRise { 0% { opacity: 0; transform: translateY(8px) scale(0.96); } 100% { opacity: 1; transform: none; } }
 
 /* ---------- fatal ---------- */
 #fatal { position: fixed; inset: 0; z-index: 100; display: none; align-items: center; justify-content: center; background: var(--ink); text-align: center; padding: 30px; }
@@ -411,6 +420,7 @@ body {
   <div class="intro-inner">
     <div class="intro-eyebrow">YOU RISE AS</div>
     <div id="intro-name" class="intro-name">The Hollow Knight</div>
+    <div id="intro-fortune" class="intro-fortune"></div>
     <div class="intro-ready" id="intro-ready">Steel yourself…</div>
   </div>
 </div>
@@ -428,7 +438,6 @@ body {
   </div>
   <div id="hud-debuffs" class="hud-debuffs"></div>
   <div class="hud-speed-track"><div id="hud-speed" class="hud-speed-fill"></div></div>
-  <div class="hud-hint">← → lane &nbsp;·&nbsp; ↑ / space leap &nbsp;·&nbsp; ↓ roll</div>
 </div>
 
 <div id="screen-menu" class="screen">
@@ -53620,8 +53629,9 @@ const CONFIG = {
   despawnBehind: 14,       // how far behind the camera before recycle
 
   // --- difficulty ---------------------------------------------------------
-  baseObstacleGap: 25,     // metres between obstacle rows at start (roomy, Subway-Surfers feel)
-  minObstacleGap: 14,      // tightest spacing at top speed
+  baseObstacleGap: 29,     // metres between obstacle rows at start (roomy, Subway-Surfers feel)
+  minObstacleGap: 18,      // tightest spacing at top speed (kept dodge-able)
+  scoreGrace: 5,           // seconds at the start with no score/gems (you're just warming up)
   gemChance: 0.62,         // chance a slot spawns a gem arc
 
   // --- scoring ------------------------------------------------------------
@@ -53771,6 +53781,22 @@ const DEBUFFS = [
 function debuffById(id) {
   return DEBUFFS.find((d) => d.id === id);
 }
+
+// ----------------------------------------------------------------------------
+//  CHALLENGE FORTUNES — in Challenge mode, each run rolls one of these at the
+//  start. You might be blessed (more gems) or cursed (faster, foggier). Every
+//  fortune that speeds you up also widens the gaps so it stays dodge-able.
+//  apply(s, ctx): s = run settings, ctx = { gemYield, visual }.
+// ----------------------------------------------------------------------------
+const CHALLENGES = [
+  { id: 'twin',     name: 'Twin Runes',    tone: 'good',  desc: 'Fortune smiles — DOUBLE gems this run!', apply: (s, ctx) => { ctx.gemYield = 2; } },
+  { id: 'blessed',  name: 'Blessed',       tone: 'good',  desc: 'Every rune worth ×1.5.',                 apply: (s, ctx) => { ctx.gemYield = 1.5; } },
+  { id: 'frenzied', name: 'Frenzied',      tone: 'bad',   desc: 'A cursed pace — nearly DOUBLE speed.',   apply: (s) => { s.startSpeed *= 1.9; s.maxSpeed *= 1.7; s.baseObstacleGap *= 1.7; s.minObstacleGap *= 1.7; } },
+  { id: 'swarmed',  name: 'Swarmed',       tone: 'bad',   desc: 'The dead crowd in — a tighter gauntlet.', apply: (s) => { s.baseObstacleGap *= 0.82; s.minObstacleGap *= 0.85; } },
+  { id: 'fogbound', name: 'Fogbound',      tone: 'bad',   desc: 'A smothering mist swallows the road.',   apply: (s) => { s.fogDensity = 0.055; } },
+  { id: 'bloodpact', name: 'Bloodpact',    tone: 'mixed', desc: 'The blood moon rises — ×2 speed AND ×2 gems.', apply: (s, ctx) => { s.startSpeed *= 2; s.maxSpeed *= 1.9; s.baseObstacleGap *= 1.9; s.minObstacleGap *= 1.9; ctx.gemYield = 2; ctx.visual = 'bloodmoon'; } },
+  { id: 'featherlight', name: 'Featherlight', tone: 'good', desc: 'A gentle, roomy run — and ×1.5 gems.', apply: (s, ctx) => { s.baseObstacleGap *= 1.25; s.minObstacleGap *= 1.25; ctx.gemYield = 1.5; } },
+];
 
 
 /* ===== save.js ===== */
@@ -56050,15 +56076,8 @@ class Spawner {
       return;
     }
 
-    // --- full-width rope hazard: spans every lane, so you must leap or roll — no
-    //     lane change saves you. Its own row.
-    if (this.rowCount > 5 && !this._padReserve && Math.random() < 0.12) {
-      const type = Math.random() < 0.5 ? 'ropeLow' : 'ropeHigh';
-      const mesh = this._acquire(type);
-      mesh.position.set(0, 0, z);
-      this.active.push({ type, lane: -1, z, depth: mesh.userData.depth, mesh });
-      return;
-    }
+    // (Full-width rope hazards removed — the band spanning the whole road read as
+    //  an ugly ribbon. Lane-based hazards carry the difficulty instead.)
 
     // --- jump-pad breather row: a springboard in one lane, rest clear. The next
     //     couple of rows keep that lane open (+ gems) so the launch is rewarded
@@ -56118,6 +56137,7 @@ class Spawner {
   }
 
   _spawnGemLine(lane, z, arc, baseY = 1.0) {
+    if (this.noGems) return;    // warm-up grace: no runes on the empty opening road
     const count = 4 + ((Math.random() * 3) | 0);
     for (let i = 0; i < count; i++) {
       const gz = z + i * 1.6;
@@ -56319,6 +56339,7 @@ class UI {
       { id: 'night', name: 'Night', desc: 'The dread dark, torch-lit. The way it was meant to be played.' },
       { id: 'day', name: 'Day', desc: 'A wan grey daylight. Everything else plays normally.' },
       { id: 'bloodmoon', name: 'Bloodmoon', tag: '2× SPEED · 2× COINS', desc: 'The sky drowns in blood. Twice as fast, twice the runes — for the fearless.' },
+      { id: 'challenge', name: 'Challenge', tag: 'RNG FORTUNE', desc: 'Fate rolls the dice each run. You might be blessed with double runes — or cursed with brutal speed.' },
     ];
     const grid = $('mode-grid');
     grid.innerHTML = '';
@@ -56332,9 +56353,19 @@ class UI {
     }
   }
 
-  showIntro(name) {
+  showIntro(name, fortune) {
     this._hideAll();
     $('intro-name').textContent = name;
+    const fEl = $('intro-fortune');
+    if (fEl) {
+      if (fortune) {
+        fEl.textContent = `${fortune.name} — ${fortune.desc}`;
+        fEl.className = 'intro-fortune show ' + (fortune.tone || 'mixed');
+      } else {
+        fEl.textContent = '';
+        fEl.className = 'intro-fortune';
+      }
+    }
     $('screen-intro').classList.add('show');
   }
 
@@ -56696,13 +56727,26 @@ class Game {
     let mult = 1;
     for (const id of active) { const c = curseById(id); if (c) { c.apply(s); mult *= c.mult; } }
 
-    // atmosphere mode chosen in Settings: day / night / bloodmoon
-    const mode = Save.mode;
-    this.world.setMode(mode);
+    // mode chosen in Settings: day / night / bloodmoon / challenge
+    const chosen = Save.mode;
+    let visual = chosen, gemYield = 1, fortune = null;
+    if (chosen === 'challenge') {
+      // roll a random fortune — lucky or unlucky
+      fortune = CHALLENGES[(Math.random() * CHALLENGES.length) | 0];
+      const ctx = { gemYield: 1, visual: ['night', 'day', 'bloodmoon'][(Math.random() * 3) | 0] };
+      fortune.apply(s, ctx);
+      visual = ctx.visual; gemYield = ctx.gemYield;
+    } else if (chosen === 'bloodmoon') {
+      // 2x faster — but widen the gaps so it stays survivable
+      s.startSpeed *= 2; s.maxSpeed *= 2;
+      s.baseObstacleGap *= 1.8; s.minObstacleGap *= 1.8;
+      gemYield = 2;
+    }
+    this.world.setMode(visual);
     this.world.setGround(Save.ground);
-    if (mode === 'day') s.fogDensity *= 0.72;
-    if (mode === 'bloodmoon') { s.startSpeed *= 2; s.maxSpeed *= 2; }   // 2x faster
-    this._bloodmoon = (mode === 'bloodmoon');
+    if (visual === 'day') s.fogDensity *= 0.72;
+    this._runGemYield = gemYield;
+    this._fortune = fortune;
 
     // Push settings into the systems.
     this.world.setFogDensity(s.fogDensity);
@@ -56717,7 +56761,8 @@ class Game {
       settings: s, mult, elapsed: 0, speed: s.startSpeed,
       distance: 0, score: 0, bonus: 0, gems: 0, curses: active.slice(),
       dieTimer: 0,
-      gemYield: this._bloodmoon ? 2 : 1,   // Bloodmoon doubles every rune's worth
+      gemYield: this._runGemYield,   // Bloodmoon / fortunes scale every rune's worth
+      fortune: this._fortune,        // the rolled Challenge fortune (null otherwise)
       nextChoiceAt: 40,       // seconds of play until the next forced wound
       debuffs: [],            // ids of wounds taken this run
     };
@@ -56731,7 +56776,7 @@ class Game {
 
     this.audio.startDrone();
     this.run.introT = 0;
-    this.ui.showIntro(this.player.variantName);
+    this.ui.showIntro(this.player.variantName, this._fortune);
     this.state = 'intro';
   }
 
@@ -56874,8 +56919,14 @@ class Game {
     const r = this.run;
     r.elapsed += dt;
     r.speed = Math.min(r.settings.maxSpeed, r.settings.startSpeed + r.settings.accel * r.elapsed);
-    r.distance += r.speed * dt * 0.5;                 // metres (0.5 = feel tuning)
-    r.score = r.distance * CONFIG.distanceToScore * r.mult + r.bonus;
+    // Warm-up grace: the first few seconds are empty road — no gems, no score —
+    // so you never bank points before you've had a single obstacle to dodge.
+    const warming = r.elapsed < CONFIG.scoreGrace;
+    this.spawner.noGems = warming;
+    if (!warming) {
+      r.distance += r.speed * dt * 0.5;               // metres (0.5 = feel tuning)
+      r.score = r.distance * CONFIG.distanceToScore * r.mult + r.bonus;
+    }
 
     // input → intents
     this.input.update(dt);

@@ -44,6 +44,7 @@ const body = `
   <div class="intro-inner">
     <div class="intro-eyebrow">YOU RISE AS</div>
     <div id="intro-name" class="intro-name">The Hollow Knight</div>
+    <div id="intro-fortune" class="intro-fortune"></div>
     <div class="intro-ready" id="intro-ready">Steel yourself…</div>
   </div>
 </div>
@@ -61,7 +62,6 @@ const body = `
   </div>
   <div id="hud-debuffs" class="hud-debuffs"></div>
   <div class="hud-speed-track"><div id="hud-speed" class="hud-speed-fill"></div></div>
-  <div class="hud-hint">← → lane &nbsp;·&nbsp; ↑ / space leap &nbsp;·&nbsp; ↓ roll</div>
 </div>
 
 <div id="screen-menu" class="screen">

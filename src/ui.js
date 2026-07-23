@@ -100,6 +100,7 @@ export class UI {
       { id: 'night', name: 'Night', desc: 'The dread dark, torch-lit. The way it was meant to be played.' },
       { id: 'day', name: 'Day', desc: 'A wan grey daylight. Everything else plays normally.' },
       { id: 'bloodmoon', name: 'Bloodmoon', tag: '2× SPEED · 2× COINS', desc: 'The sky drowns in blood. Twice as fast, twice the runes — for the fearless.' },
+      { id: 'challenge', name: 'Challenge', tag: 'RNG FORTUNE', desc: 'Fate rolls the dice each run. You might be blessed with double runes — or cursed with brutal speed.' },
     ];
     const grid = $('mode-grid');
     grid.innerHTML = '';
@@ -113,9 +114,19 @@ export class UI {
     }
   }
 
-  showIntro(name) {
+  showIntro(name, fortune) {
     this._hideAll();
     $('intro-name').textContent = name;
+    const fEl = $('intro-fortune');
+    if (fEl) {
+      if (fortune) {
+        fEl.textContent = `${fortune.name} — ${fortune.desc}`;
+        fEl.className = 'intro-fortune show ' + (fortune.tone || 'mixed');
+      } else {
+        fEl.textContent = '';
+        fEl.className = 'intro-fortune';
+      }
+    }
     $('screen-intro').classList.add('show');
   }
 
