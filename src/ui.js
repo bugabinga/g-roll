@@ -77,22 +77,24 @@ export class UI {
       box.innerHTML = `<span class="muted">No curses. The unburdened path — glory ×1.0</span>`;
       return;
     }
-    let mult = 1, cost = 0;
+    let mult = 1;
     const chips = ids.map((id) => {
       const c = curseById(id); if (!c) return '';
-      mult *= c.mult; cost += c.cost;
+      mult *= c.mult;
       return `<span class="curse-chip">${c.name}</span>`;
     }).join('');
-    box.innerHTML = `${chips}<div class="curse-sum">Invocation ${gem}${cost} · Glory ×${mult.toFixed(2)}</div>`;
+    box.innerHTML = `${chips}<div class="curse-sum">Glory ×${mult.toFixed(2)}</div>`;
   }
 
   _renderAltar() {
     const list = $('altar-list');
     list.innerHTML = '';
     for (const c of CURSES) {
-      const on = this.selected.has(c.id);
+      const unlocked = Save.isUnlocked(c.id);
+      const on = unlocked && this.selected.has(c.id);
+      const canBuy = Save.canAfford(c.cost);
       const el = document.createElement('div');
-      el.className = 'curse' + (on ? ' on' : '');
+      el.className = 'curse' + (on ? ' on' : '') + (unlocked ? '' : ' locked');
       el.innerHTML = `
         <div class="curse-head">
           <span class="curse-name">${c.name}</span>
@@ -100,25 +102,29 @@ export class UI {
         </div>
         <p class="curse-desc">${c.desc}</p>
         <div class="curse-foot">
-          <span class="curse-cost">${gem} ${c.cost} to invoke</span>
-          <span class="curse-toggle">${on ? 'INVOKED' : 'invoke'}</span>
+          ${unlocked
+            ? `<span class="curse-cost owned">✦ unlocked</span><span class="curse-toggle">${on ? 'INVOKED' : 'invoke'}</span>`
+            : `<span class="curse-cost">${gem} ${c.cost} to unlock</span><span class="curse-toggle unlock${canBuy ? '' : ' cant'}">unlock</span>`}
         </div>`;
       el.onclick = () => {
-        if (this.selected.has(c.id)) this.selected.delete(c.id);
-        else this.selected.add(c.id);
+        if (Save.isUnlocked(c.id)) {
+          if (this.selected.has(c.id)) this.selected.delete(c.id);
+          else this.selected.add(c.id);
+        } else if (Save.unlockCurse(c.id, c.cost)) {
+          this.selected.add(c.id);          // unlock + invoke straight away
+          this.refreshBank();
+        }
         this._renderAltar();
       };
       list.appendChild(el);
     }
-    // totals
-    let mult = 1, cost = 0;
-    for (const id of this.selected) { const c = curseById(id); if (c) { mult *= c.mult; cost += c.cost; } }
-    const afford = Save.canAfford(cost);
-    $('altar-total').innerHTML =
-      `Total invocation: <b class="${afford ? '' : 'bad'}">${gem} ${cost}</b> · Glory <b>×${mult.toFixed(2)}</b>`;
+    // totals — just the glory you'll wear (no per-run cost anymore)
+    let mult = 1;
+    for (const id of this.selected) { const c = curseById(id); if (c) mult *= c.mult; }
+    $('altar-total').innerHTML = `The descent will demand <b>×${mult.toFixed(2)}</b> glory of you`;
     $('altar-bank').innerHTML = `Bank: ${gem} ${Save.bank}`;
-    $('altar-confirm').disabled = !afford;
-    $('altar-confirm').textContent = afford ? 'Seal the pact' : 'Not enough gems';
+    $('altar-confirm').disabled = false;
+    $('altar-confirm').textContent = 'Seal the pact';
   }
 
   _commitCurses() {

@@ -143,6 +143,10 @@ body {
   color: var(--ash-dim); padding: 4px 10px; border: 1px solid rgba(120,110,90,0.3); border-radius: 2px;
 }
 .curse.on .curse-toggle { color: #f4d9d9; border-color: var(--blood); background: rgba(90,12,12,0.5); }
+.curse.locked { opacity: 0.82; }
+.curse-cost.owned { color: var(--gold); }
+.curse-toggle.unlock { color: #f2d98a; border-color: rgba(201,162,39,0.5); background: rgba(60,44,10,0.35); }
+.curse-toggle.unlock.cant { color: var(--ash-dim); border-color: rgba(120,110,90,0.3); background: transparent; }
 .altar-total { text-align: center; font-size: 16px; margin-bottom: 14px; color: var(--ash); }
 .altar-total b { color: #e9dfc7; }
 .altar-total .bad { color: var(--blood-bright); }

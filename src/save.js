@@ -10,7 +10,8 @@ const DEFAULT = {
   highScore: 0,
   bestDistance: 0,
   runs: 0,
-  activeCurses: [], // curse ids selected for the next run
+  unlocked: [],     // curse ids permanently unlocked (paid for once)
+  activeCurses: [], // curse ids toggled on for the next run (subset of unlocked)
   muted: false,
 };
 
@@ -21,7 +22,10 @@ function load() {
     const raw = localStorage.getItem(KEY);
     if (!raw) return { ...DEFAULT };
     const parsed = JSON.parse(raw);
-    return { ...DEFAULT, ...parsed };
+    const merged = { ...DEFAULT, ...parsed };
+    // migrate old saves: anything previously active is grandfathered as unlocked
+    merged.unlocked = [...new Set([...(merged.unlocked || []), ...(merged.activeCurses || [])])];
+    return merged;
   } catch {
     return { ...DEFAULT };
   }
@@ -42,6 +46,18 @@ export const Save = {
   get runs() { return state.runs; },
   get muted() { return state.muted; },
   get activeCurses() { return [...state.activeCurses]; },
+  get unlockedCurses() { return [...state.unlocked]; },
+  isUnlocked(id) { return state.unlocked.includes(id); },
+
+  // Pay once to unlock a curse forever. After that it's free to toggle on/off.
+  unlockCurse(id, cost) {
+    if (state.unlocked.includes(id)) return true;
+    if (state.bank < cost) return false;
+    state.bank -= cost;
+    state.unlocked.push(id);
+    persist();
+    return true;
+  },
 
   addGems(n) {
     state.bank = Math.max(0, Math.round(state.bank + n));
@@ -59,7 +75,8 @@ export const Save = {
   canAfford(n) { return state.bank >= n; },
 
   setActiveCurses(ids) {
-    state.activeCurses = [...ids];
+    // only unlocked curses may be active
+    state.activeCurses = [...ids].filter((id) => state.unlocked.includes(id));
     persist();
   },
 

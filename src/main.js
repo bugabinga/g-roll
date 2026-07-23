@@ -64,15 +64,8 @@ class Game {
     const flash = document.getElementById('death-flash');
     if (flash) flash.classList.remove('show');
 
-    // Resolve curses & pay the toll in gems.
-    const wanted = Save.activeCurses;
-    let cost = 0;
-    for (const id of wanted) { const c = curseById(id); if (c) cost += c.cost; }
-    let active = wanted;
-    if (cost > 0 && !Save.spendGems(cost)) {
-      active = [];                 // couldn't afford — descend unburdened
-      Save.setActiveCurses([]);
-    }
+    // Curses are unlocked once at the altar, then free to wear every run.
+    const active = Save.activeCurses;
 
     // Build per-run settings from CONFIG, then let each curse warp them.
     const s = {
