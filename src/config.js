@@ -8,9 +8,9 @@ export const LANE_COUNT = LANES.length;
 
 export const CONFIG = {
   // --- pacing -------------------------------------------------------------
-  startSpeed: 15,          // world units / second at the start of a run
-  maxSpeed: 42,            // hard ceiling
-  accel: 0.30,             // speed gained per second survived
+  startSpeed: 16,          // world units / second at the start of a run
+  maxSpeed: 52,            // hard ceiling (much faster top end = harder late game)
+  accel: 0.42,             // speed gained per second survived (ramps up quicker)
   laneChangeTime: 0.11,    // seconds to snap between lanes
   gravity: -58,            // jump gravity
   jumpVelocity: 18.5,      // initial jump impulse
@@ -24,8 +24,8 @@ export const CONFIG = {
   despawnBehind: 14,       // how far behind the camera before recycle
 
   // --- difficulty ---------------------------------------------------------
-  baseObstacleGap: 19,     // metres between obstacle rows at start
-  minObstacleGap: 11,      // tightest spacing at top speed
+  baseObstacleGap: 25,     // metres between obstacle rows at start (roomy, Subway-Surfers feel)
+  minObstacleGap: 14,      // tightest spacing at top speed
   gemChance: 0.62,         // chance a slot spawns a gem arc
 
   // --- scoring ------------------------------------------------------------
@@ -47,7 +47,7 @@ export const CURSES = [
     id: 'frenzy',
     name: 'Frenzy of the Hollow',
     desc: 'The corridor drags you faster. Base speed +35%, acceleration bites harder.',
-    cost: 40,
+    cost: 150,
     mult: 1.5,
     apply: (s) => { s.startSpeed *= 1.35; s.accel *= 1.4; s.maxSpeed *= 1.2; },
   },
@@ -55,7 +55,7 @@ export const CURSES = [
     id: 'fogblind',
     name: 'Fogblind',
     desc: 'The mist closes in. You will see obstacles far too late.',
-    cost: 30,
+    cost: 120,
     mult: 1.35,
     apply: (s) => { s.fogDensity = 0.055; s.viewCut = true; },
   },
@@ -63,7 +63,7 @@ export const CURSES = [
     id: 'onslaught',
     name: 'Endless Onslaught',
     desc: 'The dead crowd the halls. Obstacles pack tighter together.',
-    cost: 50,
+    cost: 180,
     mult: 1.45,
     apply: (s) => { s.baseObstacleGap *= 0.72; s.minObstacleGap *= 0.78; },
   },
@@ -71,7 +71,7 @@ export const CURSES = [
     id: 'famine',
     name: 'Famine of Runes',
     desc: 'Gems grow scarce. Greatly reduced pickups — pray your bank holds.',
-    cost: 20,
+    cost: 80,
     mult: 1.25,
     apply: (s) => { s.gemChance *= 0.35; },
   },
@@ -79,7 +79,7 @@ export const CURSES = [
     id: 'bloodlust',
     name: 'Bloodlust',
     desc: 'The beasts charge with fury. Moving hazards move faster and reach further.',
-    cost: 45,
+    cost: 160,
     mult: 1.4,
     apply: (s) => { s.hazardFury = true; },
   },
@@ -87,9 +87,41 @@ export const CURSES = [
     id: 'vertigo',
     name: 'Vertigo',
     desc: 'The world will not hold still. The camera sways and lurches with dread.',
-    cost: 25,
+    cost: 100,
     mult: 1.3,
     apply: (s) => { s.vertigo = true; },
+  },
+  {
+    id: 'tempest',
+    name: 'Tempest',
+    desc: 'A screaming gale at your back. Speed and acceleration surge to a blur.',
+    cost: 260,
+    mult: 1.75,
+    apply: (s) => { s.startSpeed *= 1.5; s.maxSpeed *= 1.35; s.accel *= 1.35; },
+  },
+  {
+    id: 'swarm',
+    name: 'The Swarm',
+    desc: 'The halls choke with the dead. Obstacles crush into a relentless gauntlet.',
+    cost: 230,
+    mult: 1.6,
+    apply: (s) => { s.baseObstacleGap *= 0.6; s.minObstacleGap *= 0.66; },
+  },
+  {
+    id: 'starless',
+    name: 'Starless Night',
+    desc: 'A smothering dark. Choking fog and dimmed torches — you run near blind.',
+    cost: 170,
+    mult: 1.5,
+    apply: (s) => { s.fogDensity = 0.064; s.dim = true; },
+  },
+  {
+    id: 'ravening',
+    name: 'Ravening Horde',
+    desc: 'The beasts multiply and hunt in packs — faster, hungrier, everywhere.',
+    cost: 210,
+    mult: 1.55,
+    apply: (s) => { s.hazardFury = true; s.beastHeavy = true; },
   },
 ];
 

@@ -14,7 +14,7 @@ three = three.replace('export {', 'const __THREE_NS = {') + '\nwindow.__THREE_NS
 // --- game modules, in dependency order --------------------------------------
 const order = [
   'config.js', 'save.js', 'input.js', 'audio.js', 'particles.js',
-  'player.js', 'world.js', 'spawner.js', 'ui.js', 'main.js',
+  'player.js', 'preview.js', 'world.js', 'spawner.js', 'ui.js', 'main.js',
 ];
 let game = 'const THREE = window.__THREE_NS;\n';
 for (const f of order) {
@@ -98,6 +98,10 @@ const body = `
 <div id="screen-shop" class="screen">
   <div class="panel">
     <h2 class="subtitle">The Wardrobe</h2>
+    <div class="skin-stage">
+      <canvas id="skin-preview" class="skin-preview"></canvas>
+      <div id="skin-preview-name" class="skin-preview-name"></div>
+    </div>
     <p class="altar-preamble">
       Buy new bodies with gems. Every body you own joins your rotation — each run
       rolls one at equal odds. All are cosmetic; none is stronger than another.

@@ -13,6 +13,7 @@ import { World } from './world.js';
 import { Player } from './player.js';
 import { Spawner } from './spawner.js';
 import { Embers, Blood, Sparks } from './particles.js';
+import { SkinPreview } from './preview.js';
 import { UI } from './ui.js';
 
 class Game {
@@ -45,6 +46,12 @@ class Game {
       onMute: () => { const m = Save.toggleMute(); this.audio.setMuted(m); return m; },
     });
 
+    // live 3D turntable for the Wardrobe (own tiny renderer; degrade gracefully)
+    try {
+      this.preview = new SkinPreview(document.getElementById('skin-preview'));
+      this.ui.setPreview(this.preview);
+    } catch (e) { this.preview = null; console.warn('skin preview unavailable', e); }
+
     this.state = 'menu';
     this.run = null;
     this._resize();
@@ -74,6 +81,7 @@ class Game {
       baseObstacleGap: CONFIG.baseObstacleGap, minObstacleGap: CONFIG.minObstacleGap,
       gemChance: CONFIG.gemChance,
       fogDensity: 0.016, viewCut: false, hazardFury: false, vertigo: false,
+      dim: false, beastHeavy: false,
     };
     let mult = 1;
     for (const id of active) { const c = curseById(id); if (c) { c.apply(s); mult *= c.mult; } }
@@ -81,9 +89,10 @@ class Game {
     // Push settings into the systems.
     this.world.setFogDensity(s.fogDensity);
     this.world.setVertigo(s.vertigo);
+    this.renderer.toneMappingExposure = s.dim ? 1.02 : 1.72;   // Starless Night dims the world
     this.spawner.opts = {
       gemChance: s.gemChance, baseGap: s.baseObstacleGap,
-      minGap: s.minObstacleGap, hazardFury: s.hazardFury,
+      minGap: s.minObstacleGap, hazardFury: s.hazardFury, beastHeavy: s.beastHeavy,
     };
 
     this.run = {
@@ -91,7 +100,7 @@ class Game {
       distance: 0, score: 0, bonus: 0, gems: 0, curses: active.slice(),
       dieTimer: 0,
       gemYield: 1,            // gems gained per rune — grows with each wound taken
-      nextChoiceAt: 60,       // seconds of play until the next forced wound
+      nextChoiceAt: 40,       // seconds of play until the next forced wound
       debuffs: [],            // ids of wounds taken this run
     };
 
@@ -170,7 +179,7 @@ class Game {
     d.apply(this);
     this.run.gemYield += d.gemBonus;
     this.run.debuffs.push(d.id);
-    this.run.nextChoiceAt += 60;
+    this.run.nextChoiceAt += 40;
     this.ui.hideChoice();
     this.audio.roll();          // a wet, resigned whoosh as the wound takes hold
     this.world.addShake(0.4);
@@ -237,6 +246,7 @@ class Game {
       else this._updateIdle(dt);
 
       this.renderer.render(this.world.scene, this.world.camera);
+      if (this.state === 'shop' && this.preview) this.preview.update(dt);
     } catch (err) {
       console.error('[g-roll] frame error:', err);
     }

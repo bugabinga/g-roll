@@ -184,7 +184,14 @@ body {
 .go-bank { color: var(--gold); font-family: 'Cinzel', serif; margin: 8px 0 18px; font-size: 19px; }
 
 /* ---------- wardrobe (skin shop) ---------- */
+.skin-stage { text-align: center; margin: 2px 0 14px; }
+.skin-preview {
+  width: 210px; height: 210px; display: inline-block;
+  filter: drop-shadow(0 0 26px rgba(179,17,17,0.35));
+}
+.skin-preview-name { font-family: 'Cinzel', serif; font-size: 17px; color: #ecdfca; letter-spacing: 0.03em; margin-top: 2px; text-shadow: 0 0 18px rgba(201,162,39,0.4); min-height: 20px; }
 .shop-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+.skin.selected { border-color: var(--gold); box-shadow: 0 0 22px rgba(201,162,39,0.28), inset 0 0 24px rgba(201,162,39,0.08); }
 .skin {
   display: flex; align-items: center; gap: 14px;
   padding: 12px 14px; border: 1px solid rgba(120,110,90,0.24); border-radius: 3px;
@@ -391,6 +398,10 @@ body {
 <div id="screen-shop" class="screen">
   <div class="panel">
     <h2 class="subtitle">The Wardrobe</h2>
+    <div class="skin-stage">
+      <canvas id="skin-preview" class="skin-preview"></canvas>
+      <div id="skin-preview-name" class="skin-preview-name"></div>
+    </div>
     <p class="altar-preamble">
       Buy new bodies with gems. Every body you own joins your rotation — each run
       rolls one at equal odds. All are cosmetic; none is stronger than another.
@@ -53495,9 +53506,9 @@ const LANE_COUNT = LANES.length;
 
 const CONFIG = {
   // --- pacing -------------------------------------------------------------
-  startSpeed: 15,          // world units / second at the start of a run
-  maxSpeed: 42,            // hard ceiling
-  accel: 0.30,             // speed gained per second survived
+  startSpeed: 16,          // world units / second at the start of a run
+  maxSpeed: 52,            // hard ceiling (much faster top end = harder late game)
+  accel: 0.42,             // speed gained per second survived (ramps up quicker)
   laneChangeTime: 0.11,    // seconds to snap between lanes
   gravity: -58,            // jump gravity
   jumpVelocity: 18.5,      // initial jump impulse
@@ -53511,8 +53522,8 @@ const CONFIG = {
   despawnBehind: 14,       // how far behind the camera before recycle
 
   // --- difficulty ---------------------------------------------------------
-  baseObstacleGap: 19,     // metres between obstacle rows at start
-  minObstacleGap: 11,      // tightest spacing at top speed
+  baseObstacleGap: 25,     // metres between obstacle rows at start (roomy, Subway-Surfers feel)
+  minObstacleGap: 14,      // tightest spacing at top speed
   gemChance: 0.62,         // chance a slot spawns a gem arc
 
   // --- scoring ------------------------------------------------------------
@@ -53534,7 +53545,7 @@ const CURSES = [
     id: 'frenzy',
     name: 'Frenzy of the Hollow',
     desc: 'The corridor drags you faster. Base speed +35%, acceleration bites harder.',
-    cost: 40,
+    cost: 150,
     mult: 1.5,
     apply: (s) => { s.startSpeed *= 1.35; s.accel *= 1.4; s.maxSpeed *= 1.2; },
   },
@@ -53542,7 +53553,7 @@ const CURSES = [
     id: 'fogblind',
     name: 'Fogblind',
     desc: 'The mist closes in. You will see obstacles far too late.',
-    cost: 30,
+    cost: 120,
     mult: 1.35,
     apply: (s) => { s.fogDensity = 0.055; s.viewCut = true; },
   },
@@ -53550,7 +53561,7 @@ const CURSES = [
     id: 'onslaught',
     name: 'Endless Onslaught',
     desc: 'The dead crowd the halls. Obstacles pack tighter together.',
-    cost: 50,
+    cost: 180,
     mult: 1.45,
     apply: (s) => { s.baseObstacleGap *= 0.72; s.minObstacleGap *= 0.78; },
   },
@@ -53558,7 +53569,7 @@ const CURSES = [
     id: 'famine',
     name: 'Famine of Runes',
     desc: 'Gems grow scarce. Greatly reduced pickups — pray your bank holds.',
-    cost: 20,
+    cost: 80,
     mult: 1.25,
     apply: (s) => { s.gemChance *= 0.35; },
   },
@@ -53566,7 +53577,7 @@ const CURSES = [
     id: 'bloodlust',
     name: 'Bloodlust',
     desc: 'The beasts charge with fury. Moving hazards move faster and reach further.',
-    cost: 45,
+    cost: 160,
     mult: 1.4,
     apply: (s) => { s.hazardFury = true; },
   },
@@ -53574,9 +53585,41 @@ const CURSES = [
     id: 'vertigo',
     name: 'Vertigo',
     desc: 'The world will not hold still. The camera sways and lurches with dread.',
-    cost: 25,
+    cost: 100,
     mult: 1.3,
     apply: (s) => { s.vertigo = true; },
+  },
+  {
+    id: 'tempest',
+    name: 'Tempest',
+    desc: 'A screaming gale at your back. Speed and acceleration surge to a blur.',
+    cost: 260,
+    mult: 1.75,
+    apply: (s) => { s.startSpeed *= 1.5; s.maxSpeed *= 1.35; s.accel *= 1.35; },
+  },
+  {
+    id: 'swarm',
+    name: 'The Swarm',
+    desc: 'The halls choke with the dead. Obstacles crush into a relentless gauntlet.',
+    cost: 230,
+    mult: 1.6,
+    apply: (s) => { s.baseObstacleGap *= 0.6; s.minObstacleGap *= 0.66; },
+  },
+  {
+    id: 'starless',
+    name: 'Starless Night',
+    desc: 'A smothering dark. Choking fog and dimmed torches — you run near blind.',
+    cost: 170,
+    mult: 1.5,
+    apply: (s) => { s.fogDensity = 0.064; s.dim = true; },
+  },
+  {
+    id: 'ravening',
+    name: 'Ravening Horde',
+    desc: 'The beasts multiply and hunt in packs — faster, hungrier, everywhere.',
+    cost: 210,
+    mult: 1.55,
+    apply: (s) => { s.hazardFury = true; s.beastHeavy = true; },
   },
 ];
 
@@ -54158,6 +54201,27 @@ class Audio {
 //  blood burst on death. Built as pooled Points for cheap draw calls.
 // ============================================================================
 
+// ---- shared soft-glow sprite (cheap fake bloom around bright emissives) -----
+let _glowTex = null;
+function glowTexture() {
+  if (_glowTex) return _glowTex;
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const ctx = c.getContext('2d');
+  const g = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+  g.addColorStop(0, 'rgba(255,255,255,1)');
+  g.addColorStop(0.35, 'rgba(255,255,255,0.55)');
+  g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, 64, 64);
+  _glowTex = new THREE.CanvasTexture(c);
+  return _glowTex;
+}
+function glowSprite(colorHex, size = 1) {
+  const mat = new THREE.SpriteMaterial({ map: glowTexture(), color: colorHex, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false });
+  const s = new THREE.Sprite(mat);
+  s.scale.set(size, size, size);
+  return s;
+}
+
 // ---- floating ash & embers -------------------------------------------------
 class Embers {
   constructor(scene) {
@@ -54341,6 +54405,7 @@ class Sparks {
 
 
 
+
 const STAND_HEIGHT = 1.8;
 const ROLL_HEIGHT = 0.78;
 
@@ -54377,6 +54442,11 @@ class Player {
     this.soul.position.set(0, 1.15, 0.2);
     g.add(this.soul);
 
+    // soft bloom around the soul-core (tinted per body in _selectVariant)
+    this.coreGlow = glowSprite(0xffa23a, 0.95);
+    this.coreGlow.position.set(0, 1.1, 0.25);
+    g.add(this.coreGlow);
+
     // All cosmetic bodies (owned + locked). Identical silhouette height, rig and
     // collision — NO gameplay difference between any of them.
     this.variants = SKINS.map((s) => s.build());
@@ -54399,7 +54469,11 @@ class Player {
     this.armL = v.armL; this.armR = v.armR;
     this.core = v.core; this.halo = v.halo; this.cape = v.cape; this.head = v.head;
     this.soul.color.setHex(v.soulColor);
-    if (v.core) this.soul.position.set(v.core.position.x, v.core.position.y, v.core.position.z + 0.05);
+    if (v.core) {
+      this.soul.position.set(v.core.position.x, v.core.position.y, v.core.position.z + 0.05);
+      this.coreGlow.position.set(v.core.position.x, v.core.position.y, v.core.position.z + 0.06);
+      this.coreGlow.material.color.setHex(v.soulColor);
+    }
     return idx;
   }
 
@@ -54571,6 +54645,7 @@ class Player {
     const pulse = 0.85 + Math.sin(this._runCycle * 0.7) * 0.15 + Math.random() * 0.1;
     this.core.scale.setScalar(pulse);
     if (this.halo) this.halo.scale.setScalar(1 + Math.sin(this._runCycle) * 0.2);
+    if (this.coreGlow) this.coreGlow.scale.setScalar(0.9 + Math.sin(this._runCycle * 1.3) * 0.18 + Math.random() * 0.08);
     this.soul.intensity = 2.8 + Math.sin(this._runCycle * 1.3) * 0.6 + Math.random() * 0.3;
   }
 
@@ -54868,11 +54943,74 @@ const SKINS = [
   { id: 'knight',   name: 'The Hollow Knight',   cost: 0,   defaultOwned: true,  color: '#ffa23a', blurb: 'Armoured wraith, an amber soul burning in its chest.', build: buildKnight },
   { id: 'revenant', name: 'The Bone Revenant',   cost: 0,   defaultOwned: true,  color: '#ff2a2a', blurb: 'A skeleton wreathed in crimson soul-fire.',            build: buildRevenant },
   { id: 'wretch',   name: 'The Ember Wretch',    cost: 0,   defaultOwned: true,  color: '#ff5a1e', blurb: 'Cracked and molten, seething with glowing lava.',      build: buildWretch },
-  { id: 'plague',   name: 'The Plague Warden',   cost: 120, defaultOwned: false, color: '#6cff5a', blurb: 'Beaked and robed; a green rot trails its steps.',      build: buildPlague },
-  { id: 'seraph',   name: 'The Ashen Seraph',    cost: 220, defaultOwned: false, color: '#ffe9a8', blurb: 'A broken halo and wings of ash. Fallen, still radiant.', build: buildSeraph },
-  { id: 'stalker',  name: 'The Void Stalker',    cost: 300, defaultOwned: false, color: '#a855ff', blurb: 'A spiked shard of hungry dark, lit by a violet core.', build: buildStalker },
-  { id: 'lich',     name: 'The Frostbound Lich', cost: 400, defaultOwned: false, color: '#59d6ff', blurb: 'Crowned in eternal frost, its soul a shard of ice.',    build: buildLich },
+  { id: 'plague',   name: 'The Plague Warden',   cost: 450,  defaultOwned: false, color: '#6cff5a', blurb: 'Beaked and robed; a green rot trails its steps.',      build: buildPlague },
+  { id: 'seraph',   name: 'The Ashen Seraph',    cost: 1100, defaultOwned: false, color: '#ffe9a8', blurb: 'A broken halo and wings of ash. Fallen, still radiant.', build: buildSeraph },
+  { id: 'stalker',  name: 'The Void Stalker',    cost: 2000, defaultOwned: false, color: '#a855ff', blurb: 'A spiked shard of hungry dark, lit by a violet core.', build: buildStalker },
+  { id: 'lich',     name: 'The Frostbound Lich', cost: 3400, defaultOwned: false, color: '#59d6ff', blurb: 'Crowned in eternal frost, its soul a shard of ice.',    build: buildLich },
 ];
+
+
+/* ===== preview.js ===== */
+// ============================================================================
+//  SkinPreview — a small live 3D turntable for the Wardrobe. Its own tiny
+//  renderer + scene so it never disturbs the game. Builds one copy of every
+//  body (via the SKINS registry) and spins the selected one.
+// ============================================================================
+
+
+class SkinPreview {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'low-power' });
+    this.renderer.setClearColor(0x000000, 0);
+    this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.5;
+
+    this.scene = new THREE.Scene();
+    this.camera = new THREE.PerspectiveCamera(32, 1, 0.1, 100);
+    this.camera.position.set(0, 1.02, 4.5);
+    this.camera.lookAt(0, 0.96, 0);
+
+    this.scene.add(new THREE.AmbientLight(0x8494c0, 1.4));
+    const key = new THREE.DirectionalLight(0xfff2e2, 1.9); key.position.set(2.5, 4, 4); this.scene.add(key);
+    const rim = new THREE.DirectionalLight(0xff7a3a, 1.3); rim.position.set(-3, 2, -3); this.scene.add(rim);
+    const fill = new THREE.PointLight(0x88aaff, 7, 14, 2); fill.position.set(-2, 1.2, 3); this.scene.add(fill);
+
+    // a faint pedestal ring
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.72, 0.025, 6, 36), new THREE.MeshBasicMaterial({ color: 0x6a5628 }));
+    ring.rotation.x = Math.PI / 2; ring.position.y = 0.015; this.scene.add(ring);
+
+    this.models = SKINS.map((s) => { const g = s.build().group; g.visible = false; this.scene.add(g); return g; });
+    this.current = 0;
+    this._t = 0;
+    this._w = this._h = 0;
+  }
+
+  show(idx) {
+    this.current = idx;
+    this.models.forEach((g, i) => { g.visible = (i === idx); g.rotation.set(0, 0, 0); g.position.set(0, 0, 0); });
+  }
+
+  update(dt) {
+    this._t += dt;
+    const g = this.models[this.current];
+    if (g) { g.rotation.y = this._t * 0.6; g.position.y = Math.sin(this._t * 1.6) * 0.02; }
+    this._resize();
+    this.renderer.render(this.scene, this.camera);
+  }
+
+  _resize() {
+    const w = this.canvas.clientWidth || 210, h = this.canvas.clientHeight || 210;
+    if (this._w !== w || this._h !== h) {
+      this._w = w; this._h = h;
+      this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      this.renderer.setSize(w, h, false);
+      this.camera.aspect = w / h;
+      this.camera.updateProjectionMatrix();
+    }
+  }
+}
 
 
 /* ===== world.js ===== */
@@ -54881,6 +55019,7 @@ const SKINS = [
 //  Fog, torchlight, gothic pillars and arches, a dead god-tree on the horizon.
 //  Floor + decor are pooled into recycled segments for an endless hall.
 // ============================================================================
+
 
 
 const SEG = CONFIG.segmentLength;
@@ -54946,10 +55085,12 @@ class World {
 
   _buildSegments() {
     this.segments = [];
-    const floorMat = new THREE.MeshStandardMaterial({ color: 0x1a1c24, roughness: 0.96, metalness: 0.03 });
-    const stoneMat = new THREE.MeshStandardMaterial({ color: 0x242733, roughness: 0.92 });
-    const pillarMat = new THREE.MeshStandardMaterial({ color: 0x2a2d38, roughness: 0.88 });
-    const runeMat = new THREE.MeshStandardMaterial({ color: 0x220505, emissive: 0x8a1010, emissiveIntensity: 0.7, roughness: 0.6 });
+    // wet flagstone: lower roughness + a little metalness so torch/emissive glints
+    const floorMat = new THREE.MeshStandardMaterial({ color: 0x1b1d27, roughness: 0.62, metalness: 0.38 });
+    const stoneMat = new THREE.MeshStandardMaterial({ color: 0x262a37, roughness: 0.85, metalness: 0.15 });
+    const pillarMat = new THREE.MeshStandardMaterial({ color: 0x2c303c, roughness: 0.8, metalness: 0.2 });
+    const runeMat = new THREE.MeshStandardMaterial({ color: 0x2a0606, emissive: 0xb01414, emissiveIntensity: 1.1, roughness: 0.5 });
+    const statueMat = new THREE.MeshStandardMaterial({ color: 0x1c1f28, roughness: 0.9, metalness: 0.1 });
 
     for (let i = 0; i < COUNT; i++) {
       const seg = new THREE.Group();
@@ -54979,12 +55120,26 @@ class World {
         pillar.castShadow = true;
         seg.add(pillar);
 
-        // torch bracket + light
-        const flameMat = new THREE.MeshBasicMaterial({ color: 0xffa33a });
+        // torch bracket + flame + soft bloom
+        const flameMat = new THREE.MeshBasicMaterial({ color: 0xffc65a });
         const flame = new THREE.Mesh(new THREE.SphereGeometry(0.18, 6, 6), flameMat);
         flame.position.set(sx * (HALL_W/2 + 0.2), 3.2, 0);
         seg.add(flame);
+        const bloom = glowSprite(0xff8a30, 2.6);
+        bloom.position.copy(flame.position);
+        seg.add(bloom);
         seg.userData[`flame${sx}`] = flame;
+
+        // a gothic statue standing sentinel beyond the wall (every other segment)
+        if (i % 2 === 1) {
+          const st = new THREE.Group();
+          const ped = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.6, 0.9), statueMat); ped.position.y = 0.3; st.add(ped);
+          const robe = new THREE.Mesh(new THREE.ConeGeometry(0.42, 1.9, 7), statueMat); robe.position.y = 1.55; st.add(robe);
+          const head = new THREE.Mesh(new THREE.SphereGeometry(0.26, 8, 7), statueMat); head.position.y = 2.55; st.add(head);
+          for (const ax of [-1, 1]) { const wing = new THREE.Mesh(new THREE.ConeGeometry(0.18, 1.4, 4), statueMat); wing.position.set(ax * 0.4, 1.7, -0.1); wing.rotation.z = ax * 0.5; st.add(wing); }
+          st.position.set(sx * (HALL_W / 2 + 1.9), 0, 0); st.rotation.y = sx > 0 ? -0.5 : 0.5;
+          seg.add(st);
+        }
       }
 
       // NOTE: no per-segment PointLight — those are the main mobile perf killer.
@@ -55147,6 +55302,7 @@ class World {
 //  the fog. Rows are curated so every one is survivable with skill; nothing is
 //  ever a coin-flip. Meshes are pooled per type to keep it smooth.
 // ============================================================================
+
 
 
 const PLAYER_HALF_DEPTH = 0.55;
@@ -55368,10 +55524,58 @@ function makeRopeHigh() {      // hanging rope of teeth across the track — ROL
   return g;
 }
 
+function makeSawblade() {     // spinning saw in a lane — DODGE (cyan)
+  const g = new THREE.Group();
+  const spinner = new THREE.Group(); spinner.position.set(0, 1.15, 0); g.add(spinner);
+  const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.72, 0.72, 0.12, 20), MATS.iron);
+  disc.rotation.x = Math.PI / 2; spinner.add(disc);
+  for (let i = 0; i < 14; i++) {
+    const a = (i / 14) * Math.PI * 2;
+    const tooth = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.32, 3), MATS.bone);
+    tooth.position.set(Math.cos(a) * 0.82, Math.sin(a) * 0.82, 0); tooth.rotation.z = a - Math.PI / 2; spinner.add(tooth);
+  }
+  const hub = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 8), glow(ACTION.dodge)); spinner.add(hub);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.04, 5, 18), glow(ACTION.dodge)); ring.position.z = 0.07; spinner.add(ring);
+  g.userData.type = 'sawblade'; g.userData.depth = 0.55; g.userData.spin = spinner;
+  return g;
+}
+
+function makePyre() {          // flaming brazier — JUMP (amber)
+  const g = new THREE.Group();
+  const bowl = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.28, 0.42, 10), MATS.iron); bowl.position.y = 0.55; g.add(bowl);
+  for (const a of [0, 2.1, 4.2]) { const leg = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.5, 0.06), MATS.iron); leg.position.set(Math.cos(a) * 0.3, 0.25, Math.sin(a) * 0.3); g.add(leg); }
+  const flames = new THREE.Group(); flames.position.set(0, 0.78, 0); g.add(flames);
+  for (let i = 0; i < 6; i++) { const f = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.5, 5), glow(ACTION.jump)); f.position.set((Math.random() - 0.5) * 0.4, Math.random() * 0.15, (Math.random() - 0.5) * 0.4); flames.add(f); }
+  const bar = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.08, 0.1), glow(ACTION.jump)); bar.position.set(0, 0.98, 0.34); g.add(bar);
+  g.userData.type = 'pyre'; g.userData.depth = 0.7; g.userData.flames = flames;
+  return g;
+}
+
+function makeCage() {          // hanging corpse-cage — ROLL UNDER (crimson)
+  const g = new THREE.Group();
+  const chain = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1.3, 4), MATS.iron); chain.position.y = HIGH_BOT + 1.45; g.add(chain);
+  const cage = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 1.35, 8, 1, true), MATS.iron); cage.position.y = HIGH_BOT + 0.7; g.add(cage);
+  for (let i = 0; i < 5; i++) { const bar = new THREE.Mesh(new THREE.BoxGeometry(0.04, 1.35, 0.04), MATS.iron); const a = (i / 5) * Math.PI * 2; bar.position.set(Math.cos(a) * 0.48, HIGH_BOT + 0.7, Math.sin(a) * 0.48); g.add(bar); }
+  const skull = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 8), MATS.bone); skull.position.y = HIGH_BOT + 0.45; g.add(skull);
+  const line = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.07, 0.5), glow(ACTION.roll)); line.position.y = HIGH_BOT + 0.02; g.add(line);
+  g.userData.type = 'cage'; g.userData.depth = 0.9;
+  return g;
+}
+
+function makeMenhir() {        // tall rune-stone — DODGE (cyan)
+  const g = new THREE.Group();
+  const stone = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.52, 3.0, 6), MATS.stone); stone.position.y = 1.5; stone.rotation.y = 0.4; g.add(stone);
+  const cap = new THREE.Mesh(new THREE.DodecahedronGeometry(0.32, 0), MATS.darkStone); cap.position.y = 3.0; g.add(cap);
+  for (let i = 0; i < 3; i++) { const r = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.12, 0.06), glow(ACTION.dodge)); r.position.set(0, 0.7 + i * 0.75, 0.45); g.add(r); }
+  g.userData.type = 'menhir'; g.userData.depth = 0.9;
+  return g;
+}
+
 const FACTORY = {
   low: makeLow, high: makeHigh, block: makeBlock, gap: makeGap,
   beast: makeBeast, pad: makePad, bomb: makeBomb, platform: makePlatform,
   ropeLow: makeRopeLow, ropeHigh: makeRopeHigh,
+  sawblade: makeSawblade, pyre: makePyre, cage: makeCage, menhir: makeMenhir,
 };
 
 function makeGem() {
@@ -55391,6 +55595,7 @@ function makeGem() {
     })
   );
   g.add(shell);
+  g.add(glowSprite(0xff4d4d, 1.5));    // soft bloom halo
   g.userData.core = core;
   return g;
 }
@@ -55403,6 +55608,8 @@ const ROWS = {
     ['high', n, n], [n, 'high', n], [n, n, 'high'],
     ['block', n, n], [n, n, 'block'],
     ['low', 'low', 'low'], ['high', 'high', 'high'],
+    ['pyre', n, n], [n, n, 'pyre'], [n, 'cage', n],   // early variety
+    ['sawblade', n, n], [n, n, 'menhir'], [n, 'bomb', n],
   ],
   mid: [
     ['low', n, 'low'], ['high', n, 'high'], ['block', n, 'block'],
@@ -55411,6 +55618,8 @@ const ROWS = {
     ['beast', n, n], [n, n, 'beast'],
     ['low', n, 'high'], ['high', n, 'low'],
     ['bomb', n, n], [n, 'bomb', n], [n, n, 'bomb'],   // jump on for bonus
+    ['sawblade', n, n], [n, n, 'sawblade'], [n, 'cage', n],
+    ['pyre', n, 'pyre'], ['menhir', n, n], [n, n, 'menhir'],
   ],
   hard: [
     ['gap', 'gap', 'gap'], ['low', 'low', 'low'], ['high', 'high', 'high'],
@@ -55419,6 +55628,9 @@ const ROWS = {
     [n, 'beast', n], ['beast', n, 'block'], ['block', n, 'beast'],
     ['gap', 'block', 'gap'], ['high', 'gap', 'high'],
     ['bomb', n, 'bomb'], ['block', 'bomb', 'block'], ['bomb', 'low', 'bomb'],
+    ['sawblade', n, 'sawblade'], ['menhir', 'pyre', 'menhir'], ['cage', 'cage', n],
+    ['pyre', 'menhir', 'pyre'], ['sawblade', 'cage', n], [n, 'sawblade', 'pyre'],
+    ['cage', 'bomb', 'cage'], ['menhir', 'gap', 'menhir'],
   ],
 };
 
@@ -55426,7 +55638,7 @@ const ROWS = {
 class Spawner {
   constructor(scene, opts = {}) {
     this.scene = scene;
-    this.pools = { low: [], high: [], block: [], gap: [], beast: [], pad: [], bomb: [], platform: [], ropeLow: [], ropeHigh: [] };
+    this.pools = { low: [], high: [], block: [], gap: [], beast: [], pad: [], bomb: [], platform: [], ropeLow: [], ropeHigh: [], sawblade: [], pyre: [], cage: [], menhir: [] };
     this.active = [];       // obstacles
     this.gems = [];
     this.gemPool = [];
@@ -55504,6 +55716,10 @@ class Spawner {
         const sp = o.mesh.userData.spark; if (sp) sp.scale.setScalar(0.7 + Math.random() * 0.7);
         const cr = o.mesh.userData.cracks; if (cr) cr.material.opacity = 0.4 + Math.sin(this._t * 6 + o.z) * 0.2;
         o.mesh.rotation.y += dt * 0.6;
+      } else if (o.type === 'sawblade' && o.mesh.userData.spin) {
+        o.mesh.userData.spin.rotation.z -= dt * 11;                 // whirring blade
+      } else if (o.type === 'pyre' && o.mesh.userData.flames) {
+        o.mesh.userData.flames.children.forEach((f) => { f.scale.y = 0.7 + Math.random() * 0.7; f.scale.x = 0.85 + Math.random() * 0.3; });
       }
       if (o.z > CONFIG.despawnBehind) {
         this._release(o);
@@ -55546,6 +55762,15 @@ class Spawner {
       this.active.push({ type: 'platform', lane, z, depth: mesh.userData.depth, mesh });
       this._spawnGemLine(lane, z - PLAT.L / 2 + PLAT.RAMP + 1, false, PLAT.H + 0.8);
       this._padReserve = { lane, rows: 2 };
+      return;
+    }
+
+    // --- Ravening Horde curse: beasts hunt far more often (a beast in one lane).
+    if (this.opts.beastHeavy && this.rowCount > 3 && !this._padReserve && Math.random() < 0.24) {
+      const lane = (Math.random() * 3) | 0;
+      const mesh = this._acquire('beast');
+      mesh.position.set(LANES[lane], 0, z);
+      this.active.push({ type: 'beast', lane, z, depth: mesh.userData.depth, mesh });
       return;
     }
 
@@ -55701,12 +55926,16 @@ class Spawner {
   _fatal(o, p) {
     switch (o.type) {
       case 'low':
+      case 'pyre':
       case 'ropeLow':  return p.bottom < LOW_TOP - 0.1;     // didn't jump high enough
       case 'high':
+      case 'cage':
       case 'ropeHigh': return p.top > HIGH_BOT + 0.05;      // didn't roll low enough
       case 'gap':   return p.bottom < 0.35;                 // on the ground over the pit
-      case 'block': return true;                            // must have avoided the lane
-      case 'beast': return true;                            // must have avoided the lane
+      case 'block':
+      case 'beast':
+      case 'sawblade':
+      case 'menhir': return true;                           // must have avoided the lane
       default: return false;
     }
   }
@@ -55796,21 +56025,33 @@ class UI {
     this.h.onAltar && this.h.onAltar();
   }
 
+  setPreview(preview) { this.preview = preview; }
+
   showShop() {
     this._hideAll();
+    if (this.selectedSkin == null) this.selectedSkin = 0;
     this._renderShop();
+    this._selectSkin(this.selectedSkin);
     $('screen-shop').classList.add('show');
     this.h.onShop && this.h.onShop();
+  }
+
+  _selectSkin(idx) {
+    this.selectedSkin = idx;
+    if (this.preview) this.preview.show(idx);
+    $('skin-preview-name').textContent = SKINS[idx].name;
+    const cards = $('shop-list').children;
+    for (let i = 0; i < cards.length; i++) cards[i].classList.toggle('selected', i === idx);
   }
 
   _renderShop() {
     const list = $('shop-list');
     list.innerHTML = '';
-    for (const s of SKINS) {
+    SKINS.forEach((s, idx) => {
       const owned = s.defaultOwned || Save.isSkinOwned(s.id);
       const canBuy = Save.canAfford(s.cost);
       const el = document.createElement('div');
-      el.className = 'skin' + (owned ? ' owned' : '');
+      el.className = 'skin' + (owned ? ' owned' : '') + (idx === this.selectedSkin ? ' selected' : '');
       el.innerHTML = `
         <div class="skin-orb" style="--c:${s.color}"></div>
         <div class="skin-body">
@@ -55822,14 +56063,16 @@ class UI {
             ? (s.defaultOwned ? `<span class="skin-owned-tag">free</span>` : `<span class="skin-owned-tag">✦ owned</span>`)
             : `<button class="skin-buy${canBuy ? '' : ' cant'}">${gem} ${s.cost}</button>`}
         </div>`;
+      el.onclick = () => this._selectSkin(idx);       // click card → preview it
       if (!owned) {
         const btn = el.querySelector('.skin-buy');
-        btn.onclick = () => {
-          if (Save.buySkin(s.id, s.cost)) { this._renderShop(); this.refreshBank(); }
+        btn.onclick = (e) => {
+          e.stopPropagation();
+          if (Save.buySkin(s.id, s.cost)) { this._renderShop(); this._selectSkin(idx); this.refreshBank(); }
         };
       }
       list.appendChild(el);
-    }
+    });
     $('shop-bank').innerHTML = `Bank: ${gem} ${Save.bank}`;
   }
 
@@ -55993,6 +56236,7 @@ class UI {
 
 
 
+
 class Game {
   constructor() {
     this.canvas = document.getElementById('game');
@@ -56023,6 +56267,12 @@ class Game {
       onMute: () => { const m = Save.toggleMute(); this.audio.setMuted(m); return m; },
     });
 
+    // live 3D turntable for the Wardrobe (own tiny renderer; degrade gracefully)
+    try {
+      this.preview = new SkinPreview(document.getElementById('skin-preview'));
+      this.ui.setPreview(this.preview);
+    } catch (e) { this.preview = null; console.warn('skin preview unavailable', e); }
+
     this.state = 'menu';
     this.run = null;
     this._resize();
@@ -56052,6 +56302,7 @@ class Game {
       baseObstacleGap: CONFIG.baseObstacleGap, minObstacleGap: CONFIG.minObstacleGap,
       gemChance: CONFIG.gemChance,
       fogDensity: 0.016, viewCut: false, hazardFury: false, vertigo: false,
+      dim: false, beastHeavy: false,
     };
     let mult = 1;
     for (const id of active) { const c = curseById(id); if (c) { c.apply(s); mult *= c.mult; } }
@@ -56059,9 +56310,10 @@ class Game {
     // Push settings into the systems.
     this.world.setFogDensity(s.fogDensity);
     this.world.setVertigo(s.vertigo);
+    this.renderer.toneMappingExposure = s.dim ? 1.02 : 1.72;   // Starless Night dims the world
     this.spawner.opts = {
       gemChance: s.gemChance, baseGap: s.baseObstacleGap,
-      minGap: s.minObstacleGap, hazardFury: s.hazardFury,
+      minGap: s.minObstacleGap, hazardFury: s.hazardFury, beastHeavy: s.beastHeavy,
     };
 
     this.run = {
@@ -56069,7 +56321,7 @@ class Game {
       distance: 0, score: 0, bonus: 0, gems: 0, curses: active.slice(),
       dieTimer: 0,
       gemYield: 1,            // gems gained per rune — grows with each wound taken
-      nextChoiceAt: 60,       // seconds of play until the next forced wound
+      nextChoiceAt: 40,       // seconds of play until the next forced wound
       debuffs: [],            // ids of wounds taken this run
     };
 
@@ -56148,7 +56400,7 @@ class Game {
     d.apply(this);
     this.run.gemYield += d.gemBonus;
     this.run.debuffs.push(d.id);
-    this.run.nextChoiceAt += 60;
+    this.run.nextChoiceAt += 40;
     this.ui.hideChoice();
     this.audio.roll();          // a wet, resigned whoosh as the wound takes hold
     this.world.addShake(0.4);
@@ -56215,6 +56467,7 @@ class Game {
       else this._updateIdle(dt);
 
       this.renderer.render(this.world.scene, this.world.camera);
+      if (this.state === 'shop' && this.preview) this.preview.update(dt);
     } catch (err) {
       console.error('[g-roll] frame error:', err);
     }

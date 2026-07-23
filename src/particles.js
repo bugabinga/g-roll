@@ -5,6 +5,27 @@
 
 import * as THREE from '../vendor/three.module.js';
 
+// ---- shared soft-glow sprite (cheap fake bloom around bright emissives) -----
+let _glowTex = null;
+function glowTexture() {
+  if (_glowTex) return _glowTex;
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const ctx = c.getContext('2d');
+  const g = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+  g.addColorStop(0, 'rgba(255,255,255,1)');
+  g.addColorStop(0.35, 'rgba(255,255,255,0.55)');
+  g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, 64, 64);
+  _glowTex = new THREE.CanvasTexture(c);
+  return _glowTex;
+}
+export function glowSprite(colorHex, size = 1) {
+  const mat = new THREE.SpriteMaterial({ map: glowTexture(), color: colorHex, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false });
+  const s = new THREE.Sprite(mat);
+  s.scale.set(size, size, size);
+  return s;
+}
+
 // ---- floating ash & embers -------------------------------------------------
 export class Embers {
   constructor(scene) {

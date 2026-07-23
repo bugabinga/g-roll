@@ -176,7 +176,14 @@ body {
 .go-bank { color: var(--gold); font-family: 'Cinzel', serif; margin: 8px 0 18px; font-size: 19px; }
 
 /* ---------- wardrobe (skin shop) ---------- */
+.skin-stage { text-align: center; margin: 2px 0 14px; }
+.skin-preview {
+  width: 210px; height: 210px; display: inline-block;
+  filter: drop-shadow(0 0 26px rgba(179,17,17,0.35));
+}
+.skin-preview-name { font-family: 'Cinzel', serif; font-size: 17px; color: #ecdfca; letter-spacing: 0.03em; margin-top: 2px; text-shadow: 0 0 18px rgba(201,162,39,0.4); min-height: 20px; }
 .shop-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+.skin.selected { border-color: var(--gold); box-shadow: 0 0 22px rgba(201,162,39,0.28), inset 0 0 24px rgba(201,162,39,0.08); }
 .skin {
   display: flex; align-items: center; gap: 14px;
   padding: 12px 14px; border: 1px solid rgba(120,110,90,0.24); border-radius: 3px;

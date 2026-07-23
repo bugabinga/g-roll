@@ -6,6 +6,7 @@
 import * as THREE from '../vendor/three.module.js';
 import { LANES, CONFIG } from './config.js';
 import { Save } from './save.js';
+import { glowSprite } from './particles.js';
 
 export const STAND_HEIGHT = 1.8;
 export const ROLL_HEIGHT = 0.78;
@@ -43,6 +44,11 @@ export class Player {
     this.soul.position.set(0, 1.15, 0.2);
     g.add(this.soul);
 
+    // soft bloom around the soul-core (tinted per body in _selectVariant)
+    this.coreGlow = glowSprite(0xffa23a, 0.95);
+    this.coreGlow.position.set(0, 1.1, 0.25);
+    g.add(this.coreGlow);
+
     // All cosmetic bodies (owned + locked). Identical silhouette height, rig and
     // collision — NO gameplay difference between any of them.
     this.variants = SKINS.map((s) => s.build());
@@ -65,7 +71,11 @@ export class Player {
     this.armL = v.armL; this.armR = v.armR;
     this.core = v.core; this.halo = v.halo; this.cape = v.cape; this.head = v.head;
     this.soul.color.setHex(v.soulColor);
-    if (v.core) this.soul.position.set(v.core.position.x, v.core.position.y, v.core.position.z + 0.05);
+    if (v.core) {
+      this.soul.position.set(v.core.position.x, v.core.position.y, v.core.position.z + 0.05);
+      this.coreGlow.position.set(v.core.position.x, v.core.position.y, v.core.position.z + 0.06);
+      this.coreGlow.material.color.setHex(v.soulColor);
+    }
     return idx;
   }
 
@@ -237,6 +247,7 @@ export class Player {
     const pulse = 0.85 + Math.sin(this._runCycle * 0.7) * 0.15 + Math.random() * 0.1;
     this.core.scale.setScalar(pulse);
     if (this.halo) this.halo.scale.setScalar(1 + Math.sin(this._runCycle) * 0.2);
+    if (this.coreGlow) this.coreGlow.scale.setScalar(0.9 + Math.sin(this._runCycle * 1.3) * 0.18 + Math.random() * 0.08);
     this.soul.intensity = 2.8 + Math.sin(this._runCycle * 1.3) * 0.6 + Math.random() * 0.3;
   }
 
@@ -534,8 +545,8 @@ export const SKINS = [
   { id: 'knight',   name: 'The Hollow Knight',   cost: 0,   defaultOwned: true,  color: '#ffa23a', blurb: 'Armoured wraith, an amber soul burning in its chest.', build: buildKnight },
   { id: 'revenant', name: 'The Bone Revenant',   cost: 0,   defaultOwned: true,  color: '#ff2a2a', blurb: 'A skeleton wreathed in crimson soul-fire.',            build: buildRevenant },
   { id: 'wretch',   name: 'The Ember Wretch',    cost: 0,   defaultOwned: true,  color: '#ff5a1e', blurb: 'Cracked and molten, seething with glowing lava.',      build: buildWretch },
-  { id: 'plague',   name: 'The Plague Warden',   cost: 120, defaultOwned: false, color: '#6cff5a', blurb: 'Beaked and robed; a green rot trails its steps.',      build: buildPlague },
-  { id: 'seraph',   name: 'The Ashen Seraph',    cost: 220, defaultOwned: false, color: '#ffe9a8', blurb: 'A broken halo and wings of ash. Fallen, still radiant.', build: buildSeraph },
-  { id: 'stalker',  name: 'The Void Stalker',    cost: 300, defaultOwned: false, color: '#a855ff', blurb: 'A spiked shard of hungry dark, lit by a violet core.', build: buildStalker },
-  { id: 'lich',     name: 'The Frostbound Lich', cost: 400, defaultOwned: false, color: '#59d6ff', blurb: 'Crowned in eternal frost, its soul a shard of ice.',    build: buildLich },
+  { id: 'plague',   name: 'The Plague Warden',   cost: 450,  defaultOwned: false, color: '#6cff5a', blurb: 'Beaked and robed; a green rot trails its steps.',      build: buildPlague },
+  { id: 'seraph',   name: 'The Ashen Seraph',    cost: 1100, defaultOwned: false, color: '#ffe9a8', blurb: 'A broken halo and wings of ash. Fallen, still radiant.', build: buildSeraph },
+  { id: 'stalker',  name: 'The Void Stalker',    cost: 2000, defaultOwned: false, color: '#a855ff', blurb: 'A spiked shard of hungry dark, lit by a violet core.', build: buildStalker },
+  { id: 'lich',     name: 'The Frostbound Lich', cost: 3400, defaultOwned: false, color: '#59d6ff', blurb: 'Crowned in eternal frost, its soul a shard of ice.',    build: buildLich },
 ];

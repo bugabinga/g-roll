@@ -82,21 +82,33 @@ export class UI {
     this.h.onAltar && this.h.onAltar();
   }
 
+  setPreview(preview) { this.preview = preview; }
+
   showShop() {
     this._hideAll();
+    if (this.selectedSkin == null) this.selectedSkin = 0;
     this._renderShop();
+    this._selectSkin(this.selectedSkin);
     $('screen-shop').classList.add('show');
     this.h.onShop && this.h.onShop();
+  }
+
+  _selectSkin(idx) {
+    this.selectedSkin = idx;
+    if (this.preview) this.preview.show(idx);
+    $('skin-preview-name').textContent = SKINS[idx].name;
+    const cards = $('shop-list').children;
+    for (let i = 0; i < cards.length; i++) cards[i].classList.toggle('selected', i === idx);
   }
 
   _renderShop() {
     const list = $('shop-list');
     list.innerHTML = '';
-    for (const s of SKINS) {
+    SKINS.forEach((s, idx) => {
       const owned = s.defaultOwned || Save.isSkinOwned(s.id);
       const canBuy = Save.canAfford(s.cost);
       const el = document.createElement('div');
-      el.className = 'skin' + (owned ? ' owned' : '');
+      el.className = 'skin' + (owned ? ' owned' : '') + (idx === this.selectedSkin ? ' selected' : '');
       el.innerHTML = `
         <div class="skin-orb" style="--c:${s.color}"></div>
         <div class="skin-body">
@@ -108,14 +120,16 @@ export class UI {
             ? (s.defaultOwned ? `<span class="skin-owned-tag">free</span>` : `<span class="skin-owned-tag">✦ owned</span>`)
             : `<button class="skin-buy${canBuy ? '' : ' cant'}">${gem} ${s.cost}</button>`}
         </div>`;
+      el.onclick = () => this._selectSkin(idx);       // click card → preview it
       if (!owned) {
         const btn = el.querySelector('.skin-buy');
-        btn.onclick = () => {
-          if (Save.buySkin(s.id, s.cost)) { this._renderShop(); this.refreshBank(); }
+        btn.onclick = (e) => {
+          e.stopPropagation();
+          if (Save.buySkin(s.id, s.cost)) { this._renderShop(); this._selectSkin(idx); this.refreshBank(); }
         };
       }
       list.appendChild(el);
-    }
+    });
     $('shop-bank').innerHTML = `Bank: ${gem} ${Save.bank}`;
   }
 

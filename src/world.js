@@ -6,6 +6,7 @@
 
 import * as THREE from '../vendor/three.module.js';
 import { CONFIG, LANES } from './config.js';
+import { glowSprite } from './particles.js';
 
 const SEG = CONFIG.segmentLength;
 const COUNT = CONFIG.segmentCount;
@@ -70,10 +71,12 @@ export class World {
 
   _buildSegments() {
     this.segments = [];
-    const floorMat = new THREE.MeshStandardMaterial({ color: 0x1a1c24, roughness: 0.96, metalness: 0.03 });
-    const stoneMat = new THREE.MeshStandardMaterial({ color: 0x242733, roughness: 0.92 });
-    const pillarMat = new THREE.MeshStandardMaterial({ color: 0x2a2d38, roughness: 0.88 });
-    const runeMat = new THREE.MeshStandardMaterial({ color: 0x220505, emissive: 0x8a1010, emissiveIntensity: 0.7, roughness: 0.6 });
+    // wet flagstone: lower roughness + a little metalness so torch/emissive glints
+    const floorMat = new THREE.MeshStandardMaterial({ color: 0x1b1d27, roughness: 0.62, metalness: 0.38 });
+    const stoneMat = new THREE.MeshStandardMaterial({ color: 0x262a37, roughness: 0.85, metalness: 0.15 });
+    const pillarMat = new THREE.MeshStandardMaterial({ color: 0x2c303c, roughness: 0.8, metalness: 0.2 });
+    const runeMat = new THREE.MeshStandardMaterial({ color: 0x2a0606, emissive: 0xb01414, emissiveIntensity: 1.1, roughness: 0.5 });
+    const statueMat = new THREE.MeshStandardMaterial({ color: 0x1c1f28, roughness: 0.9, metalness: 0.1 });
 
     for (let i = 0; i < COUNT; i++) {
       const seg = new THREE.Group();
@@ -103,12 +106,26 @@ export class World {
         pillar.castShadow = true;
         seg.add(pillar);
 
-        // torch bracket + light
-        const flameMat = new THREE.MeshBasicMaterial({ color: 0xffa33a });
+        // torch bracket + flame + soft bloom
+        const flameMat = new THREE.MeshBasicMaterial({ color: 0xffc65a });
         const flame = new THREE.Mesh(new THREE.SphereGeometry(0.18, 6, 6), flameMat);
         flame.position.set(sx * (HALL_W/2 + 0.2), 3.2, 0);
         seg.add(flame);
+        const bloom = glowSprite(0xff8a30, 2.6);
+        bloom.position.copy(flame.position);
+        seg.add(bloom);
         seg.userData[`flame${sx}`] = flame;
+
+        // a gothic statue standing sentinel beyond the wall (every other segment)
+        if (i % 2 === 1) {
+          const st = new THREE.Group();
+          const ped = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.6, 0.9), statueMat); ped.position.y = 0.3; st.add(ped);
+          const robe = new THREE.Mesh(new THREE.ConeGeometry(0.42, 1.9, 7), statueMat); robe.position.y = 1.55; st.add(robe);
+          const head = new THREE.Mesh(new THREE.SphereGeometry(0.26, 8, 7), statueMat); head.position.y = 2.55; st.add(head);
+          for (const ax of [-1, 1]) { const wing = new THREE.Mesh(new THREE.ConeGeometry(0.18, 1.4, 4), statueMat); wing.position.set(ax * 0.4, 1.7, -0.1); wing.rotation.z = ax * 0.5; st.add(wing); }
+          st.position.set(sx * (HALL_W / 2 + 1.9), 0, 0); st.rotation.y = sx > 0 ? -0.5 : 0.5;
+          seg.add(st);
+        }
       }
 
       // NOTE: no per-segment PointLight — those are the main mobile perf killer.

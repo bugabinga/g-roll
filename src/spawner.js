@@ -6,6 +6,7 @@
 
 import * as THREE from '../vendor/three.module.js';
 import { CONFIG, LANES } from './config.js';
+import { glowSprite } from './particles.js';
 
 const PLAYER_HALF_DEPTH = 0.55;
 
@@ -226,10 +227,58 @@ function makeRopeHigh() {      // hanging rope of teeth across the track — ROL
   return g;
 }
 
+function makeSawblade() {     // spinning saw in a lane — DODGE (cyan)
+  const g = new THREE.Group();
+  const spinner = new THREE.Group(); spinner.position.set(0, 1.15, 0); g.add(spinner);
+  const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.72, 0.72, 0.12, 20), MATS.iron);
+  disc.rotation.x = Math.PI / 2; spinner.add(disc);
+  for (let i = 0; i < 14; i++) {
+    const a = (i / 14) * Math.PI * 2;
+    const tooth = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.32, 3), MATS.bone);
+    tooth.position.set(Math.cos(a) * 0.82, Math.sin(a) * 0.82, 0); tooth.rotation.z = a - Math.PI / 2; spinner.add(tooth);
+  }
+  const hub = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 8), glow(ACTION.dodge)); spinner.add(hub);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.04, 5, 18), glow(ACTION.dodge)); ring.position.z = 0.07; spinner.add(ring);
+  g.userData.type = 'sawblade'; g.userData.depth = 0.55; g.userData.spin = spinner;
+  return g;
+}
+
+function makePyre() {          // flaming brazier — JUMP (amber)
+  const g = new THREE.Group();
+  const bowl = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.28, 0.42, 10), MATS.iron); bowl.position.y = 0.55; g.add(bowl);
+  for (const a of [0, 2.1, 4.2]) { const leg = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.5, 0.06), MATS.iron); leg.position.set(Math.cos(a) * 0.3, 0.25, Math.sin(a) * 0.3); g.add(leg); }
+  const flames = new THREE.Group(); flames.position.set(0, 0.78, 0); g.add(flames);
+  for (let i = 0; i < 6; i++) { const f = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.5, 5), glow(ACTION.jump)); f.position.set((Math.random() - 0.5) * 0.4, Math.random() * 0.15, (Math.random() - 0.5) * 0.4); flames.add(f); }
+  const bar = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.08, 0.1), glow(ACTION.jump)); bar.position.set(0, 0.98, 0.34); g.add(bar);
+  g.userData.type = 'pyre'; g.userData.depth = 0.7; g.userData.flames = flames;
+  return g;
+}
+
+function makeCage() {          // hanging corpse-cage — ROLL UNDER (crimson)
+  const g = new THREE.Group();
+  const chain = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1.3, 4), MATS.iron); chain.position.y = HIGH_BOT + 1.45; g.add(chain);
+  const cage = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 1.35, 8, 1, true), MATS.iron); cage.position.y = HIGH_BOT + 0.7; g.add(cage);
+  for (let i = 0; i < 5; i++) { const bar = new THREE.Mesh(new THREE.BoxGeometry(0.04, 1.35, 0.04), MATS.iron); const a = (i / 5) * Math.PI * 2; bar.position.set(Math.cos(a) * 0.48, HIGH_BOT + 0.7, Math.sin(a) * 0.48); g.add(bar); }
+  const skull = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 8), MATS.bone); skull.position.y = HIGH_BOT + 0.45; g.add(skull);
+  const line = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.07, 0.5), glow(ACTION.roll)); line.position.y = HIGH_BOT + 0.02; g.add(line);
+  g.userData.type = 'cage'; g.userData.depth = 0.9;
+  return g;
+}
+
+function makeMenhir() {        // tall rune-stone — DODGE (cyan)
+  const g = new THREE.Group();
+  const stone = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.52, 3.0, 6), MATS.stone); stone.position.y = 1.5; stone.rotation.y = 0.4; g.add(stone);
+  const cap = new THREE.Mesh(new THREE.DodecahedronGeometry(0.32, 0), MATS.darkStone); cap.position.y = 3.0; g.add(cap);
+  for (let i = 0; i < 3; i++) { const r = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.12, 0.06), glow(ACTION.dodge)); r.position.set(0, 0.7 + i * 0.75, 0.45); g.add(r); }
+  g.userData.type = 'menhir'; g.userData.depth = 0.9;
+  return g;
+}
+
 const FACTORY = {
   low: makeLow, high: makeHigh, block: makeBlock, gap: makeGap,
   beast: makeBeast, pad: makePad, bomb: makeBomb, platform: makePlatform,
   ropeLow: makeRopeLow, ropeHigh: makeRopeHigh,
+  sawblade: makeSawblade, pyre: makePyre, cage: makeCage, menhir: makeMenhir,
 };
 
 function makeGem() {
@@ -249,6 +298,7 @@ function makeGem() {
     })
   );
   g.add(shell);
+  g.add(glowSprite(0xff4d4d, 1.5));    // soft bloom halo
   g.userData.core = core;
   return g;
 }
@@ -261,6 +311,8 @@ const ROWS = {
     ['high', n, n], [n, 'high', n], [n, n, 'high'],
     ['block', n, n], [n, n, 'block'],
     ['low', 'low', 'low'], ['high', 'high', 'high'],
+    ['pyre', n, n], [n, n, 'pyre'], [n, 'cage', n],   // early variety
+    ['sawblade', n, n], [n, n, 'menhir'], [n, 'bomb', n],
   ],
   mid: [
     ['low', n, 'low'], ['high', n, 'high'], ['block', n, 'block'],
@@ -269,6 +321,8 @@ const ROWS = {
     ['beast', n, n], [n, n, 'beast'],
     ['low', n, 'high'], ['high', n, 'low'],
     ['bomb', n, n], [n, 'bomb', n], [n, n, 'bomb'],   // jump on for bonus
+    ['sawblade', n, n], [n, n, 'sawblade'], [n, 'cage', n],
+    ['pyre', n, 'pyre'], ['menhir', n, n], [n, n, 'menhir'],
   ],
   hard: [
     ['gap', 'gap', 'gap'], ['low', 'low', 'low'], ['high', 'high', 'high'],
@@ -277,6 +331,9 @@ const ROWS = {
     [n, 'beast', n], ['beast', n, 'block'], ['block', n, 'beast'],
     ['gap', 'block', 'gap'], ['high', 'gap', 'high'],
     ['bomb', n, 'bomb'], ['block', 'bomb', 'block'], ['bomb', 'low', 'bomb'],
+    ['sawblade', n, 'sawblade'], ['menhir', 'pyre', 'menhir'], ['cage', 'cage', n],
+    ['pyre', 'menhir', 'pyre'], ['sawblade', 'cage', n], [n, 'sawblade', 'pyre'],
+    ['cage', 'bomb', 'cage'], ['menhir', 'gap', 'menhir'],
   ],
 };
 
@@ -284,7 +341,7 @@ const ROWS = {
 export class Spawner {
   constructor(scene, opts = {}) {
     this.scene = scene;
-    this.pools = { low: [], high: [], block: [], gap: [], beast: [], pad: [], bomb: [], platform: [], ropeLow: [], ropeHigh: [] };
+    this.pools = { low: [], high: [], block: [], gap: [], beast: [], pad: [], bomb: [], platform: [], ropeLow: [], ropeHigh: [], sawblade: [], pyre: [], cage: [], menhir: [] };
     this.active = [];       // obstacles
     this.gems = [];
     this.gemPool = [];
@@ -362,6 +419,10 @@ export class Spawner {
         const sp = o.mesh.userData.spark; if (sp) sp.scale.setScalar(0.7 + Math.random() * 0.7);
         const cr = o.mesh.userData.cracks; if (cr) cr.material.opacity = 0.4 + Math.sin(this._t * 6 + o.z) * 0.2;
         o.mesh.rotation.y += dt * 0.6;
+      } else if (o.type === 'sawblade' && o.mesh.userData.spin) {
+        o.mesh.userData.spin.rotation.z -= dt * 11;                 // whirring blade
+      } else if (o.type === 'pyre' && o.mesh.userData.flames) {
+        o.mesh.userData.flames.children.forEach((f) => { f.scale.y = 0.7 + Math.random() * 0.7; f.scale.x = 0.85 + Math.random() * 0.3; });
       }
       if (o.z > CONFIG.despawnBehind) {
         this._release(o);
@@ -404,6 +465,15 @@ export class Spawner {
       this.active.push({ type: 'platform', lane, z, depth: mesh.userData.depth, mesh });
       this._spawnGemLine(lane, z - PLAT.L / 2 + PLAT.RAMP + 1, false, PLAT.H + 0.8);
       this._padReserve = { lane, rows: 2 };
+      return;
+    }
+
+    // --- Ravening Horde curse: beasts hunt far more often (a beast in one lane).
+    if (this.opts.beastHeavy && this.rowCount > 3 && !this._padReserve && Math.random() < 0.24) {
+      const lane = (Math.random() * 3) | 0;
+      const mesh = this._acquire('beast');
+      mesh.position.set(LANES[lane], 0, z);
+      this.active.push({ type: 'beast', lane, z, depth: mesh.userData.depth, mesh });
       return;
     }
 
@@ -559,12 +629,16 @@ export class Spawner {
   _fatal(o, p) {
     switch (o.type) {
       case 'low':
+      case 'pyre':
       case 'ropeLow':  return p.bottom < LOW_TOP - 0.1;     // didn't jump high enough
       case 'high':
+      case 'cage':
       case 'ropeHigh': return p.top > HIGH_BOT + 0.05;      // didn't roll low enough
       case 'gap':   return p.bottom < 0.35;                 // on the ground over the pit
-      case 'block': return true;                            // must have avoided the lane
-      case 'beast': return true;                            // must have avoided the lane
+      case 'block':
+      case 'beast':
+      case 'sawblade':
+      case 'menhir': return true;                           // must have avoided the lane
       default: return false;
     }
   }
