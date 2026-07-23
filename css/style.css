@@ -175,6 +175,32 @@ body {
 .go-line { font-size: 17px; margin: 4px 0; color: #b9b3a6; }
 .go-bank { color: var(--gold); font-family: 'Cinzel', serif; margin: 8px 0 18px; font-size: 19px; }
 
+/* ---------- wardrobe (skin shop) ---------- */
+.shop-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+.skin {
+  display: flex; align-items: center; gap: 14px;
+  padding: 12px 14px; border: 1px solid rgba(120,110,90,0.24); border-radius: 3px;
+  background: rgba(16,14,12,0.62); transition: border-color 0.16s ease, background 0.16s ease;
+}
+.skin.owned { border-color: rgba(201,162,39,0.35); }
+.skin-orb {
+  width: 46px; height: 46px; border-radius: 50%; flex: 0 0 auto;
+  background: radial-gradient(circle at 38% 34%, var(--c) 0%, rgba(0,0,0,0.2) 68%, #000 100%);
+  box-shadow: 0 0 18px 2px var(--c), inset 0 0 10px rgba(0,0,0,0.6);
+}
+.skin-body { flex: 1 1 auto; min-width: 0; }
+.skin-name { font-family: 'Cinzel', serif; font-size: 16.5px; color: #ecdfca; }
+.skin-blurb { font-size: 13.5px; color: #9a9488; line-height: 1.35; margin-top: 2px; }
+.skin-action { flex: 0 0 auto; text-align: right; }
+.skin-buy {
+  font-family: 'Cinzel', serif; font-size: 13px; letter-spacing: 0.04em; color: #f2d98a;
+  padding: 8px 13px; border: 1px solid rgba(201,162,39,0.5); border-radius: 2px;
+  background: rgba(60,44,10,0.35); cursor: pointer; white-space: nowrap; transition: all 0.15s ease;
+}
+.skin-buy:hover { border-color: var(--gold); box-shadow: 0 0 16px rgba(201,162,39,0.3); color: #fff; }
+.skin-buy.cant { color: var(--ash-dim); border-color: rgba(120,110,90,0.3); background: transparent; cursor: default; box-shadow: none; }
+.skin-owned-tag { font-family: 'Cinzel', serif; font-size: 12px; letter-spacing: 0.1em; color: var(--gold); text-transform: uppercase; }
+
 /* ---------- wound choice ---------- */
 .choice-eyebrow { font-family: 'Cinzel', serif; letter-spacing: 0.26em; font-size: 12px; color: var(--gold); margin-bottom: 6px; }
 .choice-sub { font-style: italic; color: #a49e90; font-size: 15px; margin-bottom: 18px; text-align: center; }

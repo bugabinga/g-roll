@@ -5,6 +5,7 @@
 
 import { Save } from './save.js';
 import { CURSES, curseById, debuffById } from './config.js';
+import { SKINS } from './player.js';
 
 const $ = (id) => document.getElementById(id);
 const gem = '<span class="gem-ico">◆</span>';
@@ -43,6 +44,9 @@ export class UI {
     $('altar-back').onclick = () => this.showMenu();
     $('altar-confirm').onclick = () => { this._commitCurses(); this.showMenu(); };
 
+    $('btn-shop').onclick = () => this.showShop();
+    $('shop-back').onclick = () => this.showMenu();
+
     $('go-again').onclick = () => this.h.onBegin();
     $('go-altar').onclick = () => this.showAltar();
     $('go-menu').onclick = () => this.showMenu();
@@ -50,7 +54,7 @@ export class UI {
 
   // -- screen switching ------------------------------------------------------
   _hideAll() {
-    for (const s of ['menu', 'altar', 'gameover', 'choice', 'intro']) $('screen-' + s).classList.remove('show');
+    for (const s of ['menu', 'altar', 'gameover', 'choice', 'intro', 'shop']) $('screen-' + s).classList.remove('show');
     $('hud').classList.remove('show');
   }
 
@@ -76,6 +80,43 @@ export class UI {
     this._renderAltar();
     $('screen-altar').classList.add('show');
     this.h.onAltar && this.h.onAltar();
+  }
+
+  showShop() {
+    this._hideAll();
+    this._renderShop();
+    $('screen-shop').classList.add('show');
+    this.h.onShop && this.h.onShop();
+  }
+
+  _renderShop() {
+    const list = $('shop-list');
+    list.innerHTML = '';
+    for (const s of SKINS) {
+      const owned = s.defaultOwned || Save.isSkinOwned(s.id);
+      const canBuy = Save.canAfford(s.cost);
+      const el = document.createElement('div');
+      el.className = 'skin' + (owned ? ' owned' : '');
+      el.innerHTML = `
+        <div class="skin-orb" style="--c:${s.color}"></div>
+        <div class="skin-body">
+          <div class="skin-name">${s.name}</div>
+          <div class="skin-blurb">${s.blurb}</div>
+        </div>
+        <div class="skin-action">
+          ${owned
+            ? (s.defaultOwned ? `<span class="skin-owned-tag">free</span>` : `<span class="skin-owned-tag">✦ owned</span>`)
+            : `<button class="skin-buy${canBuy ? '' : ' cant'}">${gem} ${s.cost}</button>`}
+        </div>`;
+      if (!owned) {
+        const btn = el.querySelector('.skin-buy');
+        btn.onclick = () => {
+          if (Save.buySkin(s.id, s.cost)) { this._renderShop(); this.refreshBank(); }
+        };
+      }
+      list.appendChild(el);
+    }
+    $('shop-bank').innerHTML = `Bank: ${gem} ${Save.bank}`;
   }
 
   showHUD() {

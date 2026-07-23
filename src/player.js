@@ -5,6 +5,7 @@
 
 import * as THREE from '../vendor/three.module.js';
 import { LANES, CONFIG } from './config.js';
+import { Save } from './save.js';
 
 export const STAND_HEIGHT = 1.8;
 export const ROLL_HEIGHT = 0.78;
@@ -42,20 +43,22 @@ export class Player {
     this.soul.position.set(0, 1.15, 0.2);
     g.add(this.soul);
 
-    // Three purely-cosmetic bodies. Identical silhouette height, identical rig,
-    // identical collision — NO gameplay difference between them.
-    this.variants = [buildKnight(), buildRevenant(), buildWretch()];
+    // All cosmetic bodies (owned + locked). Identical silhouette height, rig and
+    // collision — NO gameplay difference between any of them.
+    this.variants = SKINS.map((s) => s.build());
     for (const v of this.variants) { v.group.visible = false; g.add(v.group); }
 
     this._selectVariant();
   }
 
-  // Roll a body for this run: exactly 1-in-3 each, cosmetic only.
+  // Roll a body for this run: equal chance among the ones you OWN (default +
+  // whatever you've bought in the Wardrobe). Purely cosmetic.
   _selectVariant() {
-    const NAMES = ['The Hollow Knight', 'The Bone Revenant', 'The Ember Wretch'];
-    const idx = Math.floor(Math.random() * this.variants.length);
+    const owned = SKINS.map((s, i) => (s.defaultOwned || Save.isSkinOwned(s.id)) ? i : -1).filter((i) => i >= 0);
+    const pool = owned.length ? owned : [0];
+    const idx = pool[Math.floor(Math.random() * pool.length)];
     this.variantIndex = idx;
-    this.variantName = NAMES[idx];
+    this.variantName = SKINS[idx].name;
     for (let i = 0; i < this.variants.length; i++) this.variants[i].group.visible = (i === idx);
     const v = this.variants[idx];
     this.legL = v.legL; this.legR = v.legR;
@@ -398,3 +401,141 @@ function buildWretch() {
 
   return { group: g, legL, legR, armL, armR, head, core, halo, cape: null, soulColor: 0xff5a1e };
 }
+
+// simple limb helpers shared by the shop bodies
+function robeLeg(g, sx, mat, footMat) {
+  const p = pivot(g, sx * 0.16, 0.72, 0);
+  const leg = new THREE.Mesh(new THREE.CapsuleGeometry(0.1, 0.42, 3, 6), mat); leg.position.y = -0.3; p.add(leg);
+  const foot = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.12, 0.3), footMat); foot.position.set(0, -0.62, 0.05); p.add(foot);
+  return p;
+}
+function simpleArm(g, sx, mat, handMat, y = 1.3, spread = 0.34) {
+  const p = pivot(g, sx * spread, y, 0);
+  const arm = new THREE.Mesh(new THREE.CapsuleGeometry(0.09, 0.44, 3, 6), mat); arm.position.y = -0.26; p.add(arm);
+  const hand = new THREE.Mesh(new THREE.SphereGeometry(0.09, 6, 6), handMat); hand.position.y = -0.5; p.add(hand);
+  return p;
+}
+function coreOrb(g, hex, glowHex, x = 0, y = 1.1, z = 0.22, r = 0.13) {
+  const core = new THREE.Mesh(new THREE.IcosahedronGeometry(r, 0), new THREE.MeshBasicMaterial({ color: hex }));
+  core.position.set(x, y, z); g.add(core);
+  const halo = new THREE.Mesh(new THREE.IcosahedronGeometry(r * 1.6, 0), new THREE.MeshBasicMaterial({ color: glowHex, transparent: true, opacity: 0.4 }));
+  halo.position.copy(core.position); g.add(halo);
+  return { core, halo };
+}
+
+// (4) The Plague Warden — beaked, robed, trailing a green rot.
+function buildPlague() {
+  const g = new THREE.Group();
+  const robe = new THREE.MeshStandardMaterial({ color: 0x14201a, roughness: 1 });
+  const leather = new THREE.MeshStandardMaterial({ color: 0x2b241a, roughness: 0.9 });
+  const green = new THREE.MeshBasicMaterial({ color: 0x6cff5a });
+  const legL = robeLeg(g, -1, robe, leather), legR = robeLeg(g, 1, robe, leather);
+
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.46, 1.0, 8), robe); body.position.y = 1.0; g.add(body);
+  const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.36, 0.18, 8), leather); collar.position.y = 1.45; g.add(collar);
+  const { core, halo } = coreOrb(g, 0xaaffa0, 0x6cff5a, 0, 1.02, 0.32, 0.11);
+
+  const armL = simpleArm(g, -1, robe, leather, 1.3, 0.32), armR = simpleArm(g, 1, robe, leather, 1.3, 0.32);
+
+  const headM = new THREE.Mesh(new THREE.SphereGeometry(0.2, 9, 8), leather); headM.position.y = 1.63; g.add(headM);
+  const beak = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.5, 6), leather); beak.rotation.x = Math.PI / 2; beak.position.set(0, 1.58, 0.34); g.add(beak);
+  for (const sx of [-0.09, 0.09]) { const lens = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 8), green); lens.position.set(sx, 1.66, 0.14); g.add(lens); }
+  const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.34, 0.04, 12), robe); brim.position.y = 1.78; g.add(brim);
+  const hat = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.2, 0.26, 10), robe); hat.position.y = 1.92; g.add(hat);
+
+  return { group: g, legL, legR, armL, armR, head: headM, core, halo, cape: null, soulColor: 0x6cff5a };
+}
+
+// (5) The Ashen Seraph — a broken halo and wings of ash.
+function buildSeraph() {
+  const g = new THREE.Group();
+  const robe = new THREE.MeshStandardMaterial({ color: 0xb9b2a0, roughness: 0.9 });
+  const ash = new THREE.MeshStandardMaterial({ color: 0x6b6456, roughness: 1, side: THREE.DoubleSide });
+  const goldGlow = new THREE.MeshBasicMaterial({ color: 0xffe9a8 });
+  const legL = robeLeg(g, -1, robe, ash), legR = robeLeg(g, 1, robe, ash);
+
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.44, 1.0, 8), robe); body.position.y = 1.0; g.add(body);
+  const { core, halo } = coreOrb(g, 0xfff4d0, 0xffe9a8, 0, 1.06, 0.26, 0.12);
+
+  const armL = simpleArm(g, -1, robe, robe, 1.3, 0.33), armR = simpleArm(g, 1, robe, robe, 1.3, 0.33);
+
+  // swept wings behind the shoulders
+  for (const sx of [-1, 1]) {
+    const wing = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 1.0, 1, 3), ash);
+    wing.position.set(sx * 0.42, 1.2, -0.16); wing.rotation.set(0.2, sx * 0.9, sx * -0.3); g.add(wing);
+  }
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.2, 10, 9), robe); head.position.y = 1.64; g.add(head);
+  const eye = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.1, 0.02), goldGlow); eye.position.set(0, 1.66, 0.19); g.add(eye);
+  // broken halo ring, tilted
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.03, 6, 14, Math.PI * 1.5), goldGlow);
+  ring.position.set(0, 1.95, -0.02); ring.rotation.x = 0.5; g.add(ring);
+
+  return { group: g, legL, legR, armL, armR, head, core, halo, cape: null, soulColor: 0xffe9a8 };
+}
+
+// (6) The Void Stalker — a spiked shard of hungry dark, violet core.
+function buildStalker() {
+  const g = new THREE.Group();
+  const dark = new THREE.MeshStandardMaterial({ color: 0x0d0b16, roughness: 0.6, metalness: 0.3 });
+  const violet = new THREE.MeshBasicMaterial({ color: 0xa855ff });
+  const violetFaint = new THREE.MeshBasicMaterial({ color: 0x7a35d0, transparent: true, opacity: 0.5 });
+  const legL = robeLeg(g, -1, dark, dark), legR = robeLeg(g, 1, dark, dark);
+
+  const torso = new THREE.Mesh(new THREE.IcosahedronGeometry(0.4, 0), dark); torso.position.y = 1.06; torso.scale.set(0.9, 1.1, 0.85); g.add(torso);
+  // jagged spikes bristling from the torso
+  for (let i = 0; i < 7; i++) {
+    const a = (i / 7) * Math.PI * 2;
+    const sp = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.34, 4), dark);
+    sp.position.set(Math.cos(a) * 0.34, 1.06 + Math.sin(a) * 0.3, 0.1); sp.rotation.z = -a + Math.PI / 2; g.add(sp);
+  }
+  const shell = new THREE.Mesh(new THREE.IcosahedronGeometry(0.43, 0), violetFaint); shell.position.copy(torso.position); shell.scale.copy(torso.scale); g.add(shell);
+  const { core, halo } = coreOrb(g, 0xd8b0ff, 0xa855ff, 0, 1.06, 0.2, 0.12);
+
+  const armL = simpleArm(g, -1, dark, dark, 1.3, 0.36), armR = simpleArm(g, 1, dark, dark, 1.3, 0.36);
+
+  const head = new THREE.Mesh(new THREE.IcosahedronGeometry(0.2, 0), dark); head.position.y = 1.62; g.add(head);
+  for (const sx of [-1, 1]) { const horn = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.3, 4), dark); horn.position.set(sx * 0.12, 1.82, -0.04); horn.rotation.z = sx * -0.5; g.add(horn); }
+  for (const sx of [-0.08, 0.08]) { const eye = new THREE.Mesh(new THREE.SphereGeometry(0.038, 6, 6), violet); eye.position.set(sx, 1.63, 0.17); g.add(eye); }
+
+  return { group: g, legL, legR, armL, armR, head, core, halo, cape: null, soulColor: 0xa855ff };
+}
+
+// (7) The Frostbound Lich — crowned in eternal frost, icy blue soul.
+function buildLich() {
+  const g = new THREE.Group();
+  const robe = new THREE.MeshStandardMaterial({ color: 0x16222b, roughness: 0.9 });
+  const bone = new THREE.MeshStandardMaterial({ color: 0xc7d3d6, roughness: 0.7 });
+  const ice = new THREE.MeshStandardMaterial({ color: 0x2a6a80, emissive: 0x59d6ff, emissiveIntensity: 1.4, roughness: 0.2, metalness: 0.2, transparent: true, opacity: 0.85 });
+  const iceGlow = new THREE.MeshBasicMaterial({ color: 0x9fe9ff });
+  const legL = robeLeg(g, -1, robe, robe), legR = robeLeg(g, 1, robe, robe);
+
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.46, 1.0, 8), robe); body.position.y = 1.0; g.add(body);
+  const { core, halo } = coreOrb(g, 0x9fe9ff, 0x59d6ff, 0, 1.05, 0.28, 0.12);
+  // frost shards on the shoulders
+  for (const sx of [-1, 1]) { const shard = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.4, 4), ice); shard.position.set(sx * 0.34, 1.5, 0); shard.rotation.z = sx * -0.3; g.add(shard); }
+
+  const armL = simpleArm(g, -1, robe, bone, 1.32, 0.34), armR = simpleArm(g, 1, robe, bone, 1.32, 0.34);
+
+  const skull = new THREE.Mesh(new THREE.SphereGeometry(0.19, 10, 9), bone); skull.position.y = 1.62; g.add(skull);
+  const jaw = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.08, 0.18), bone); jaw.position.set(0, 1.5, 0.02); g.add(jaw);
+  for (const sx of [-0.07, 0.07]) { const eye = new THREE.Mesh(new THREE.SphereGeometry(0.03, 6, 6), iceGlow); eye.position.set(sx, 1.63, 0.15); g.add(eye); }
+  // jagged ice crown
+  for (let i = -2; i <= 2; i++) { const spike = new THREE.Mesh(new THREE.ConeGeometry(0.04, 0.2 + Math.abs(i) * -0.03 + 0.16, 4), ice); spike.position.set(i * 0.09, 1.82, 0); g.add(spike); }
+
+  return { group: g, legL, legR, armL, armR, head: skull, core, halo, cape: null, soulColor: 0x59d6ff };
+}
+
+// ============================================================================
+//  Skin registry. The first three are free (owned by default); the rest are
+//  bought in the Wardrobe with gems. Every run rolls one at random, equal odds,
+//  from the set you own. All are cosmetic — identical hitbox and physics.
+// ============================================================================
+export const SKINS = [
+  { id: 'knight',   name: 'The Hollow Knight',   cost: 0,   defaultOwned: true,  color: '#ffa23a', blurb: 'Armoured wraith, an amber soul burning in its chest.', build: buildKnight },
+  { id: 'revenant', name: 'The Bone Revenant',   cost: 0,   defaultOwned: true,  color: '#ff2a2a', blurb: 'A skeleton wreathed in crimson soul-fire.',            build: buildRevenant },
+  { id: 'wretch',   name: 'The Ember Wretch',    cost: 0,   defaultOwned: true,  color: '#ff5a1e', blurb: 'Cracked and molten, seething with glowing lava.',      build: buildWretch },
+  { id: 'plague',   name: 'The Plague Warden',   cost: 120, defaultOwned: false, color: '#6cff5a', blurb: 'Beaked and robed; a green rot trails its steps.',      build: buildPlague },
+  { id: 'seraph',   name: 'The Ashen Seraph',    cost: 220, defaultOwned: false, color: '#ffe9a8', blurb: 'A broken halo and wings of ash. Fallen, still radiant.', build: buildSeraph },
+  { id: 'stalker',  name: 'The Void Stalker',    cost: 300, defaultOwned: false, color: '#a855ff', blurb: 'A spiked shard of hungry dark, lit by a violet core.', build: buildStalker },
+  { id: 'lich',     name: 'The Frostbound Lich', cost: 400, defaultOwned: false, color: '#59d6ff', blurb: 'Crowned in eternal frost, its soul a shard of ice.',    build: buildLich },
+];

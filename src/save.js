@@ -12,6 +12,7 @@ const DEFAULT = {
   runs: 0,
   unlocked: [],     // curse ids permanently unlocked (paid for once)
   activeCurses: [], // curse ids toggled on for the next run (subset of unlocked)
+  skins: [],        // character/skin ids bought in the Wardrobe (defaults are always owned)
   muted: false,
 };
 
@@ -48,6 +49,18 @@ export const Save = {
   get activeCurses() { return [...state.activeCurses]; },
   get unlockedCurses() { return [...state.unlocked]; },
   isUnlocked(id) { return state.unlocked.includes(id); },
+
+  // --- Wardrobe (skins) --- defaults are always owned; these are the bought ones.
+  get ownedSkins() { return [...state.skins]; },
+  isSkinOwned(id) { return state.skins.includes(id); },
+  buySkin(id, cost) {
+    if (state.skins.includes(id)) return true;
+    if (state.bank < cost) return false;
+    state.bank -= cost;
+    state.skins.push(id);
+    persist();
+    return true;
+  },
 
   // Pay once to unlock a curse forever. After that it's free to toggle on/off.
   unlockCurse(id, cost) {

@@ -64,6 +64,7 @@ const body = `
     <div class="btn-row">
       <button id="btn-begin" class="btn btn-primary">Begin the Descent</button>
       <button id="btn-altar" class="btn">Altar of Curses</button>
+      <button id="btn-shop" class="btn">Wardrobe</button>
     </div>
     <div class="menu-stats">
       <div><span class="stat-k">highest glory</span><span id="menu-high" class="stat-v">0</span></div>
@@ -91,6 +92,19 @@ const body = `
       <button id="altar-confirm" class="btn btn-primary">Seal the pact</button>
       <button id="altar-back" class="btn">Back</button>
     </div>
+  </div>
+</div>
+
+<div id="screen-shop" class="screen">
+  <div class="panel">
+    <h2 class="subtitle">The Wardrobe</h2>
+    <p class="altar-preamble">
+      Buy new bodies with gems. Every body you own joins your rotation — each run
+      rolls one at equal odds. All are cosmetic; none is stronger than another.
+    </p>
+    <div id="shop-bank" class="altar-bank"></div>
+    <div id="shop-list" class="shop-list"></div>
+    <div class="btn-row"><button id="shop-back" class="btn">Back</button></div>
   </div>
 </div>
 

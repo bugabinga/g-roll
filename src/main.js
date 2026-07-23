@@ -40,6 +40,7 @@ class Game {
     this.ui = new UI({
       onBegin: () => this.beginRun(),
       onAltar: () => { this.state = 'altar'; },
+      onShop: () => { this.state = 'shop'; },
       onMenu: () => { this.state = 'menu'; },
       onMute: () => { const m = Save.toggleMute(); this.audio.setMuted(m); return m; },
     });
