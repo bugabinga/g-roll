@@ -65,6 +65,7 @@ const body = `
       <button id="btn-begin" class="btn btn-primary">Begin the Descent</button>
       <button id="btn-altar" class="btn">Altar of Curses</button>
       <button id="btn-shop" class="btn">Wardrobe</button>
+      <button id="btn-settings" class="btn">Settings</button>
     </div>
     <div class="menu-stats">
       <div><span class="stat-k">highest glory</span><span id="menu-high" class="stat-v">0</span></div>
@@ -95,6 +96,19 @@ const body = `
   </div>
 </div>
 
+<div id="screen-settings" class="screen">
+  <div class="panel">
+    <h2 class="subtitle">Settings</h2>
+    <div class="set-label">Atmosphere</div>
+    <div id="mode-grid" class="mode-grid"></div>
+    <div class="set-label" style="margin-top:18px">Sound</div>
+    <div class="btn-row" style="justify-content:flex-start">
+      <button id="set-sound" class="btn btn-ghost">♪ sound</button>
+    </div>
+    <div class="btn-row"><button id="settings-back" class="btn">Back</button></div>
+  </div>
+</div>
+
 <div id="screen-shop" class="screen">
   <div class="panel">
     <h2 class="subtitle">The Wardrobe</h2>
@@ -107,6 +121,12 @@ const body = `
       rolls one at equal odds. All are cosmetic; none is stronger than another.
     </p>
     <div id="shop-bank" class="altar-bank"></div>
+    <div class="lootbox">
+      <div class="lootbox-title">✦ Mystery Lootbox</div>
+      <div class="lootbox-desc">A random locked body — with a <b>1-in-100</b> shot at the MYTHIC Gilded Sovereign.</div>
+      <button id="lootbox-open" class="btn btn-primary">Open — <span class="gem-ico">◆</span> 500</button>
+      <div id="lootbox-result" class="lootbox-result"></div>
+    </div>
     <div id="shop-list" class="shop-list"></div>
     <div class="btn-row"><button id="shop-back" class="btn">Back</button></div>
   </div>

@@ -13,6 +13,7 @@ const DEFAULT = {
   unlocked: [],     // curse ids permanently unlocked (paid for once)
   activeCurses: [], // curse ids toggled on for the next run (subset of unlocked)
   skins: [],        // character/skin ids bought in the Wardrobe (defaults are always owned)
+  mode: 'night',    // atmosphere: 'night' | 'day' | 'bloodmoon'
   muted: false,
 };
 
@@ -46,6 +47,8 @@ export const Save = {
   get bestDistance() { return state.bestDistance; },
   get runs() { return state.runs; },
   get muted() { return state.muted; },
+  get mode() { return state.mode || 'night'; },
+  setMode(m) { state.mode = m; persist(); },
   get activeCurses() { return [...state.activeCurses]; },
   get unlockedCurses() { return [...state.unlocked]; },
   isUnlocked(id) { return state.unlocked.includes(id); },
@@ -60,6 +63,9 @@ export const Save = {
     state.skins.push(id);
     persist();
     return true;
+  },
+  grantSkin(id) {   // lootbox award — no cost
+    if (!state.skins.includes(id)) { state.skins.push(id); persist(); }
   },
 
   // Pay once to unlock a curse forever. After that it's free to toggle on/off.

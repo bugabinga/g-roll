@@ -29,7 +29,7 @@ export class World {
     this._buildStars();
     this._buildSegments();
     this._buildHorizon();
-    this.setDayMode(false);
+    this.setMode('night');
 
     this.speed = 0;
     this.shake = 0;
@@ -166,11 +166,13 @@ export class World {
   }
 
   _buildSky() {
-    // two gradient domes — a dread night and a pallid, overcast day — toggled per run
+    // three gradient domes — dread night, pallid day, and a hellish bloodmoon
     this.nightSky = this._makeSkyDome(0x0a0a1c, 0x0d0d16, 0x1c0a12);
     this.daySky = this._makeSkyDome(0x3a5a86, 0x5b769c, 0x9a8a86);
+    this.bloodSky = this._makeSkyDome(0x1a0206, 0x2a0408, 0x520a0a);
     this.scene.add(this.nightSky);
     this.scene.add(this.daySky);
+    this.scene.add(this.bloodSky);
 
     this._buildCelestial();
   }
@@ -186,6 +188,12 @@ export class World {
     this.sun.position.set(46, 78, -200); this.sun.lookAt(0, 0, 0);
     const sunGlow = glowSprite(0xffd08a, 70); sunGlow.position.copy(this.sun.position); this.scene.add(sunGlow); this.sunGlow = sunGlow;
     this.scene.add(this.sun);
+
+    // a huge, low blood moon for Bloodmoon mode
+    this.bloodMoon = new THREE.Mesh(new THREE.CircleGeometry(22, 32), new THREE.MeshBasicMaterial({ color: 0xd41818, fog: false }));
+    this.bloodMoon.position.set(0, 40, -210); this.bloodMoon.lookAt(0, 0, 0);
+    const bloodGlow = glowSprite(0xff2a1a, 130); bloodGlow.position.copy(this.bloodMoon.position); this.scene.add(bloodGlow); this.bloodGlow = bloodGlow;
+    this.scene.add(this.bloodMoon);
 
     // planets floating in the far sky (present in both modes, low + huge)
     this.planets = new THREE.Group();
@@ -209,26 +217,30 @@ export class World {
     this.scene.add(this.planets);
   }
 
-  // 1-in-5 runs are lit by a wan grey daylight instead of the dread night.
-  setDayMode(day) {
-    this.dayMode = day;
-    this.nightSky.visible = !day;
+  // Set the run's atmosphere: 'night' (default), 'day', or 'bloodmoon'.
+  setMode(mode) {
+    this.mode = mode;
+    const day = mode === 'day', blood = mode === 'bloodmoon';
+    this.nightSky.visible = mode === 'night';
     this.daySky.visible = day;
-    this.moon.visible = !day; this.moonGlow.visible = !day;
+    this.bloodSky.visible = blood;
+    this.moon.visible = mode === 'night'; this.moonGlow.visible = mode === 'night';
     this.sun.visible = day; this.sunGlow.visible = day;
-    if (this.stars) this.stars.material.opacity = day ? 0.12 : 0.9;
-    this.scene.background = new THREE.Color(day ? 0x5b769c : 0x05060a);
+    this.bloodMoon.visible = blood; this.bloodGlow.visible = blood;
+    if (this.stars) this.stars.material.opacity = day ? 0.12 : (blood ? 0.5 : 0.9);
+    this.scene.background = new THREE.Color(day ? 0x5b769c : (blood ? 0x2a0408 : 0x05060a));
 
-    // lighting: bright, cool, flat by day; dim, warm, moody by night
-    this.ambient.color.setHex(day ? 0xb8c6e0 : 0x586688);
-    this.ambient.intensity = day ? 2.1 : 1.45;
-    this.hemi.color.setHex(day ? 0xcdd8ee : 0x8090c0);
-    this.hemi.groundColor.setHex(day ? 0x6a6258 : 0x4a1c1c);
-    this.hemi.intensity = day ? 1.7 : 1.25;
-    this.sky.color.setHex(day ? 0xfff4dc : 0x9fb0e0);
-    this.sky.intensity = day ? 1.5 : 0.7;
-    this.key.intensity = day ? 0.25 : 0.6;
-    this.fog.color.setHex(day ? 0xa9bcd6 : 0x0d0d16);
+    // lighting per mode: flat/cool day, moody night, crimson bloodmoon
+    this.ambient.color.setHex(day ? 0xb8c6e0 : (blood ? 0x6e2020 : 0x586688));
+    this.ambient.intensity = day ? 2.1 : (blood ? 1.5 : 1.45);
+    this.hemi.color.setHex(day ? 0xcdd8ee : (blood ? 0x8a2222 : 0x8090c0));
+    this.hemi.groundColor.setHex(day ? 0x6a6258 : (blood ? 0x2a0808 : 0x4a1c1c));
+    this.hemi.intensity = day ? 1.7 : (blood ? 1.4 : 1.25);
+    this.sky.color.setHex(day ? 0xfff4dc : (blood ? 0xff5a4a : 0x9fb0e0));
+    this.sky.intensity = day ? 1.5 : (blood ? 1.1 : 0.7);
+    this.key.color.setHex(blood ? 0xff3020 : 0xff8a44);
+    this.key.intensity = day ? 0.25 : (blood ? 0.9 : 0.6);
+    this.fog.color.setHex(day ? 0xa9bcd6 : (blood ? 0x2a0606 : 0x0d0d16));
   }
 
   _buildStars() {

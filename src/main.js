@@ -42,6 +42,7 @@ class Game {
       onBegin: () => this.beginRun(),
       onAltar: () => { this.state = 'altar'; },
       onShop: () => { this.state = 'shop'; },
+      onSettings: () => { this.state = 'settings'; },
       onMenu: () => { this.state = 'menu'; },
       onMute: () => { const m = Save.toggleMute(); this.audio.setMuted(m); return m; },
     });
@@ -86,10 +87,12 @@ class Game {
     let mult = 1;
     for (const id of active) { const c = curseById(id); if (c) { c.apply(s); mult *= c.mult; } }
 
-    // 1-in-5 runs break into a wan grey daylight instead of the dread night.
-    const day = Math.random() < 0.2;
-    this.world.setDayMode(day);
-    if (day) s.fogDensity *= 0.72;
+    // atmosphere mode chosen in Settings: day / night / bloodmoon
+    const mode = Save.mode;
+    this.world.setMode(mode);
+    if (mode === 'day') s.fogDensity *= 0.72;
+    if (mode === 'bloodmoon') { s.startSpeed *= 2; s.maxSpeed *= 2; }   // 2x faster
+    this._bloodmoon = (mode === 'bloodmoon');
 
     // Push settings into the systems.
     this.world.setFogDensity(s.fogDensity);
@@ -104,7 +107,7 @@ class Game {
       settings: s, mult, elapsed: 0, speed: s.startSpeed,
       distance: 0, score: 0, bonus: 0, gems: 0, curses: active.slice(),
       dieTimer: 0,
-      gemYield: 1,            // gems gained per rune — grows with each wound taken
+      gemYield: this._bloodmoon ? 2 : 1,   // Bloodmoon doubles every rune's worth
       nextChoiceAt: 40,       // seconds of play until the next forced wound
       debuffs: [],            // ids of wounds taken this run
     };

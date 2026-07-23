@@ -46,6 +46,15 @@ export class UI {
 
     $('btn-shop').onclick = () => this.showShop();
     $('shop-back').onclick = () => this.showMenu();
+    $('lootbox-open').onclick = () => this._openLootbox();
+
+    $('btn-settings').onclick = () => this.showSettings();
+    $('settings-back').onclick = () => this.showMenu();
+    $('set-sound').onclick = () => {
+      const m = this.h.onMute();
+      $('set-sound').textContent = m ? '♪ muted' : '♪ sound';
+      $('set-sound').classList.toggle('off', m);
+    };
 
     $('go-again').onclick = () => this.h.onBegin();
     $('go-altar').onclick = () => this.showAltar();
@@ -54,8 +63,35 @@ export class UI {
 
   // -- screen switching ------------------------------------------------------
   _hideAll() {
-    for (const s of ['menu', 'altar', 'gameover', 'choice', 'intro', 'shop']) $('screen-' + s).classList.remove('show');
+    for (const s of ['menu', 'altar', 'gameover', 'choice', 'intro', 'shop', 'settings']) $('screen-' + s).classList.remove('show');
     $('hud').classList.remove('show');
+  }
+
+  showSettings() {
+    this._hideAll();
+    $('set-sound').textContent = Save.muted ? '♪ muted' : '♪ sound';
+    $('set-sound').classList.toggle('off', Save.muted);
+    this._renderModes();
+    $('screen-settings').classList.add('show');
+    this.h.onSettings && this.h.onSettings();
+  }
+
+  _renderModes() {
+    const MODES = [
+      { id: 'night', name: 'Night', desc: 'The dread dark, torch-lit. The way it was meant to be played.' },
+      { id: 'day', name: 'Day', desc: 'A wan grey daylight. Everything else plays normally.' },
+      { id: 'bloodmoon', name: 'Bloodmoon', tag: '2× SPEED · 2× COINS', desc: 'The sky drowns in blood. Twice as fast, twice the runes — for the fearless.' },
+    ];
+    const grid = $('mode-grid');
+    grid.innerHTML = '';
+    for (const m of MODES) {
+      const el = document.createElement('button');
+      el.className = 'mode-btn' + (Save.mode === m.id ? ' on' : '');
+      el.dataset.mode = m.id;
+      el.innerHTML = `<div class="mode-name">${m.name}${m.tag ? `<span class="tag">${m.tag}</span>` : ''}</div><div class="mode-desc">${m.desc}</div>`;
+      el.onclick = () => { Save.setMode(m.id); this._renderModes(); };
+      grid.appendChild(el);
+    }
   }
 
   showIntro(name) {
@@ -97,17 +133,18 @@ export class UI {
     this.selectedSkin = idx;
     if (this.preview) this.preview.show(idx);
     $('skin-preview-name').textContent = SKINS[idx].name;
-    const cards = $('shop-list').children;
-    for (let i = 0; i < cards.length; i++) cards[i].classList.toggle('selected', i === idx);
+    for (const card of $('shop-list').children) card.classList.toggle('selected', Number(card.dataset.skinIdx) === idx);
   }
 
   _renderShop() {
     const list = $('shop-list');
     list.innerHTML = '';
     SKINS.forEach((s, idx) => {
+      if (s.lootboxOnly && !Save.isSkinOwned(s.id)) return;   // mythic hides until won
       const owned = s.defaultOwned || Save.isSkinOwned(s.id);
       const canBuy = Save.canAfford(s.cost);
       const el = document.createElement('div');
+      el.dataset.skinIdx = idx;
       el.className = 'skin' + (owned ? ' owned' : '') + (idx === this.selectedSkin ? ' selected' : '');
       el.innerHTML = `
         <div class="skin-orb" style="--c:${s.color}"></div>
@@ -131,6 +168,33 @@ export class UI {
       list.appendChild(el);
     });
     $('shop-bank').innerHTML = `Bank: ${gem} ${Save.bank}`;
+  }
+
+  _openLootbox() {
+    const COST = 500;
+    const res = $('lootbox-result');
+    if (!Save.spendGems(COST)) {
+      res.textContent = 'Not enough gems.'; res.className = 'lootbox-result show dupe';
+      return;
+    }
+    const pool = SKINS.filter((s) => !s.defaultOwned && !s.mythic);   // the buyable bodies
+    let wonId, msg, tone;
+    if (Math.random() < 0.01) {                                       // 1-in-100 jackpot
+      wonId = 'sovereign'; tone = 'mythic';
+      if (Save.isSkinOwned('sovereign')) { Save.addGems(1200); msg = '✦ MYTHIC DUPLICATE — +◆1200 ✦'; }
+      else { Save.grantSkin('sovereign'); msg = '✦ MYTHIC! The Gilded Sovereign! ✦'; }
+    } else {
+      const pick = pool[(Math.random() * pool.length) | 0];
+      wonId = pick.id;
+      if (Save.isSkinOwned(pick.id)) { Save.addGems(250); msg = `Duplicate — ${pick.name}. +◆250`; tone = 'dupe'; }
+      else { Save.grantSkin(pick.id); msg = `You unboxed ${pick.name}!`; tone = 'win'; }
+    }
+    const idx = SKINS.findIndex((s) => s.id === wonId);
+    this._renderShop();
+    this._selectSkin(idx);                    // reveal the winning body in the turntable
+    this.refreshBank();
+    res.textContent = msg;
+    res.className = 'lootbox-result show ' + tone;
   }
 
   showHUD() {
