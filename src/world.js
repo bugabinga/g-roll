@@ -29,6 +29,7 @@ export class World {
     this._buildStars();
     this._buildSegments();
     this._buildHorizon();
+    this.setDayMode(false);
 
     this.speed = 0;
     this.shake = 0;
@@ -39,16 +40,17 @@ export class World {
   _buildLights() {
     // Cheap, uniform fill (ambient + hemisphere cost almost nothing and brighten
     // the whole scene) does the heavy lifting so we need very few punctual lights.
-    this.scene.add(new THREE.AmbientLight(0x586688, 1.45));
-    const hemi = new THREE.HemisphereLight(0x8090c0, 0x4a1c1c, 1.25);
-    this.scene.add(hemi);
+    this.ambient = new THREE.AmbientLight(0x586688, 1.45);
+    this.scene.add(this.ambient);
+    this.hemi = new THREE.HemisphereLight(0x8090c0, 0x4a1c1c, 1.25);
+    this.scene.add(this.hemi);
 
-    const moon = new THREE.DirectionalLight(0x9fb0e0, 0.7);
-    moon.position.set(-8, 20, -6);
-    this.scene.add(moon);
-    const key = new THREE.DirectionalLight(0xff8a44, 0.6);
-    key.position.set(2, 8, -24);
-    this.scene.add(key);
+    this.sky = new THREE.DirectionalLight(0x9fb0e0, 0.7);   // moon (night) / sun (day)
+    this.sky.position.set(-8, 20, -6);
+    this.scene.add(this.sky);
+    this.key = new THREE.DirectionalLight(0xff8a44, 0.6);
+    this.key.position.set(2, 8, -24);
+    this.scene.add(this.key);
 
     // Warm spotlight fixed over the action zone — the world scrolls beneath it,
     // so the player and the obstacles about to reach them stay readable.
@@ -147,11 +149,9 @@ export class World {
     this._frontZ = -(COUNT - 1) * SEG; // z of the furthest segment edge
   }
 
-  _buildSky() {
-    // A single big gradient dome — deep indigo overhead fading to an ember-lit
-    // horizon. One unlit mesh, no per-frame cost, big depth payoff.
+  _makeSkyDome(topHex, midHex, horizonHex) {
     const geo = new THREE.SphereGeometry(300, 24, 16);
-    const top = new THREE.Color(0x0a0a1c), mid = new THREE.Color(0x0d0d16), horizon = new THREE.Color(0x1c0a12);
+    const top = new THREE.Color(topHex), mid = new THREE.Color(midHex), horizon = new THREE.Color(horizonHex);
     const pos = geo.attributes.position;
     const col = new Float32Array(pos.count * 3);
     const c = new THREE.Color();
@@ -162,8 +162,73 @@ export class World {
       col[i*3] = c.r; col[i*3+1] = c.g; col[i*3+2] = c.b;
     }
     geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
-    const sky = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false, depthWrite: false }));
-    this.scene.add(sky);
+    return new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false, depthWrite: false }));
+  }
+
+  _buildSky() {
+    // two gradient domes — a dread night and a pallid, overcast day — toggled per run
+    this.nightSky = this._makeSkyDome(0x0a0a1c, 0x0d0d16, 0x1c0a12);
+    this.daySky = this._makeSkyDome(0x3a5a86, 0x5b769c, 0x9a8a86);
+    this.scene.add(this.nightSky);
+    this.scene.add(this.daySky);
+
+    this._buildCelestial();
+  }
+
+  _buildCelestial() {
+    // moon (night) and a pale sun (day)
+    this.moon = new THREE.Mesh(new THREE.CircleGeometry(9, 24), new THREE.MeshBasicMaterial({ color: 0xdfe4f0, fog: false }));
+    this.moon.position.set(-40, 70, -200); this.moon.lookAt(0, 0, 0);
+    const moonGlow = glowSprite(0xbfd0ff, 42); moonGlow.position.copy(this.moon.position); this.scene.add(moonGlow); this.moonGlow = moonGlow;
+    this.scene.add(this.moon);
+
+    this.sun = new THREE.Mesh(new THREE.CircleGeometry(11, 24), new THREE.MeshBasicMaterial({ color: 0xfff2d0, fog: false }));
+    this.sun.position.set(46, 78, -200); this.sun.lookAt(0, 0, 0);
+    const sunGlow = glowSprite(0xffd08a, 70); sunGlow.position.copy(this.sun.position); this.scene.add(sunGlow); this.sunGlow = sunGlow;
+    this.scene.add(this.sun);
+
+    // planets floating in the far sky (present in both modes, low + huge)
+    this.planets = new THREE.Group();
+    const defs = [
+      { r: 16, x: -95, y: 52, z: -260, col: 0x8a5a3a, ring: true,  rc: 0xd8b48a },
+      { r: 11, x: 80,  y: 88, z: -280, col: 0x9a3a3a, ring: false },
+      { r: 22, x: 30,  y: 40, z: -300, col: 0x3a4a6a, ring: false },
+    ];
+    for (const d of defs) {
+      const planet = new THREE.Mesh(new THREE.SphereGeometry(d.r, 20, 16),
+        new THREE.MeshStandardMaterial({ color: d.col, roughness: 1, metalness: 0.1, emissive: d.col, emissiveIntensity: 0.15, fog: false }));
+      planet.position.set(d.x, d.y, d.z);
+      this.planets.add(planet);
+      if (d.ring) {
+        const ring = new THREE.Mesh(new THREE.RingGeometry(d.r * 1.4, d.r * 2.1, 40),
+          new THREE.MeshBasicMaterial({ color: d.rc, side: THREE.DoubleSide, transparent: true, opacity: 0.5, fog: false }));
+        ring.position.copy(planet.position); ring.rotation.set(1.2, 0.3, 0);
+        this.planets.add(ring);
+      }
+    }
+    this.scene.add(this.planets);
+  }
+
+  // 1-in-5 runs are lit by a wan grey daylight instead of the dread night.
+  setDayMode(day) {
+    this.dayMode = day;
+    this.nightSky.visible = !day;
+    this.daySky.visible = day;
+    this.moon.visible = !day; this.moonGlow.visible = !day;
+    this.sun.visible = day; this.sunGlow.visible = day;
+    if (this.stars) this.stars.material.opacity = day ? 0.12 : 0.9;
+    this.scene.background = new THREE.Color(day ? 0x5b769c : 0x05060a);
+
+    // lighting: bright, cool, flat by day; dim, warm, moody by night
+    this.ambient.color.setHex(day ? 0xb8c6e0 : 0x586688);
+    this.ambient.intensity = day ? 2.1 : 1.45;
+    this.hemi.color.setHex(day ? 0xcdd8ee : 0x8090c0);
+    this.hemi.groundColor.setHex(day ? 0x6a6258 : 0x4a1c1c);
+    this.hemi.intensity = day ? 1.7 : 1.25;
+    this.sky.color.setHex(day ? 0xfff4dc : 0x9fb0e0);
+    this.sky.intensity = day ? 1.5 : 0.7;
+    this.key.intensity = day ? 0.25 : 0.6;
+    this.fog.color.setHex(day ? 0xa9bcd6 : 0x0d0d16);
   }
 
   _buildStars() {

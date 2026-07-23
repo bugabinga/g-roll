@@ -76,6 +76,10 @@ export class Player {
       this.coreGlow.position.set(v.core.position.x, v.core.position.y, v.core.position.z + 0.06);
       this.coreGlow.material.color.setHex(v.soulColor);
     }
+    // gather this body's eyes so they can be hidden while running (it faces the
+    // camera, and glowing eyes made it read as running backwards)
+    this.eyes = [];
+    v.group.traverse((o) => { if (o.userData && o.userData.eye) this.eyes.push(o); });
     return idx;
   }
 
@@ -91,6 +95,7 @@ export class Player {
     g.rotation.x = 0; g.rotation.z = 0;
     g.rotation.y = Math.sin(t * 0.9) * 0.55 * (1 - prep);   // showcase turn, settles to forward
     g.position.y = Math.sin(t * 2.2) * 0.03;                // breathing
+    if (this.eyes) for (const e of this.eyes) e.visible = true;   // eyes on for the reveal
 
     this.legL.rotation.x = lerp(this.legL.rotation.x, 0.12, 0.12);
     this.legR.rotation.x = lerp(this.legR.rotation.x, -0.12, 0.12);
@@ -249,6 +254,9 @@ export class Player {
     if (this.halo) this.halo.scale.setScalar(1 + Math.sin(this._runCycle) * 0.2);
     if (this.coreGlow) this.coreGlow.scale.setScalar(0.9 + Math.sin(this._runCycle * 1.3) * 0.18 + Math.random() * 0.08);
     this.soul.intensity = 2.8 + Math.sin(this._runCycle * 1.3) * 0.6 + Math.random() * 0.3;
+
+    // hide the eyes while running so the figure doesn't look like it faces you
+    if (this.eyes) for (const e of this.eyes) e.visible = false;
   }
 
   // vertical extents of the collision volume in world space
@@ -321,7 +329,7 @@ function buildKnight() {
 
   const hood = new THREE.Mesh(new THREE.SphereGeometry(0.24, 10, 8, 0, Math.PI*2, 0, Math.PI*0.7), cloth); hood.position.y = 1.62; hood.rotation.x = -0.12; g.add(hood);
   const face = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 8), new THREE.MeshBasicMaterial({ color: 0x050505 })); face.position.set(0, 1.58, 0.06); g.add(face);
-  for (const sx of [-0.07, 0.07]) { const eye = new THREE.Mesh(new THREE.SphereGeometry(0.035, 6, 6), glow); eye.position.set(sx, 1.6, 0.2); g.add(eye); }
+  for (const sx of [-0.07, 0.07]) { const eye = new THREE.Mesh(new THREE.SphereGeometry(0.035, 6, 6), glow); eye.position.set(sx, 1.6, 0.2); eye.userData.eye = true; g.add(eye); }
 
   const capePivot = pivot(g, 0, 1.34, 0.14);
   const cape = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 1.05, 1, 4), new THREE.MeshStandardMaterial({ color: 0x2a0a0a, roughness: 1, side: THREE.DoubleSide })); cape.position.set(0, -0.5, 0.02); capePivot.add(cape);
@@ -369,7 +377,7 @@ function buildRevenant() {
   const jaw = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.09, 0.2), bone); jaw.position.set(0, 1.47, 0.02); g.add(jaw);
   for (const sx of [-0.07, 0.07]) {
     const socket = new THREE.Mesh(new THREE.SphereGeometry(0.05, 7, 7), new THREE.MeshBasicMaterial({ color: 0x120000 })); socket.position.set(sx, 1.62, 0.13); g.add(socket);
-    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.028, 6, 6), glowR); eye.position.set(sx, 1.62, 0.17); g.add(eye);
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.028, 6, 6), glowR); eye.position.set(sx, 1.62, 0.17); eye.userData.eye = true; g.add(eye);
   }
 
   return { group: g, legL, legR, armL, armR, head: skull, core, halo, cape: null, soulColor: 0xff2a2a };
@@ -408,7 +416,7 @@ function buildWretch() {
 
   const head = new THREE.Mesh(new THREE.IcosahedronGeometry(0.24, 0), char); head.position.y = 1.64; g.add(head);
   for (const sx of [-1, 1]) { const horn = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.28, 5), char); horn.position.set(sx * 0.14, 1.83, -0.02); horn.rotation.z = sx * -0.4; g.add(horn); }
-  for (const sx of [-0.09, 0.09]) { const eye = new THREE.Mesh(new THREE.SphereGeometry(0.04, 6, 6), emberGlow); eye.position.set(sx, 1.66, 0.2); g.add(eye); }
+  for (const sx of [-0.09, 0.09]) { const eye = new THREE.Mesh(new THREE.SphereGeometry(0.04, 6, 6), emberGlow); eye.position.set(sx, 1.66, 0.2); eye.userData.eye = true; g.add(eye); }
 
   return { group: g, legL, legR, armL, armR, head, core, halo, cape: null, soulColor: 0xff5a1e };
 }
@@ -450,7 +458,7 @@ function buildPlague() {
 
   const headM = new THREE.Mesh(new THREE.SphereGeometry(0.2, 9, 8), leather); headM.position.y = 1.63; g.add(headM);
   const beak = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.5, 6), leather); beak.rotation.x = Math.PI / 2; beak.position.set(0, 1.58, 0.34); g.add(beak);
-  for (const sx of [-0.09, 0.09]) { const lens = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 8), green); lens.position.set(sx, 1.66, 0.14); g.add(lens); }
+  for (const sx of [-0.09, 0.09]) { const lens = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 8), green); lens.position.set(sx, 1.66, 0.14); lens.userData.eye = true; g.add(lens); }
   const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.34, 0.04, 12), robe); brim.position.y = 1.78; g.add(brim);
   const hat = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.2, 0.26, 10), robe); hat.position.y = 1.92; g.add(hat);
 
@@ -476,7 +484,7 @@ function buildSeraph() {
     wing.position.set(sx * 0.42, 1.2, -0.16); wing.rotation.set(0.2, sx * 0.9, sx * -0.3); g.add(wing);
   }
   const head = new THREE.Mesh(new THREE.SphereGeometry(0.2, 10, 9), robe); head.position.y = 1.64; g.add(head);
-  const eye = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.1, 0.02), goldGlow); eye.position.set(0, 1.66, 0.19); g.add(eye);
+  const eye = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.1, 0.02), goldGlow); eye.position.set(0, 1.66, 0.19); eye.userData.eye = true; g.add(eye);
   // broken halo ring, tilted
   const ring = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.03, 6, 14, Math.PI * 1.5), goldGlow);
   ring.position.set(0, 1.95, -0.02); ring.rotation.x = 0.5; g.add(ring);
@@ -506,7 +514,7 @@ function buildStalker() {
 
   const head = new THREE.Mesh(new THREE.IcosahedronGeometry(0.2, 0), dark); head.position.y = 1.62; g.add(head);
   for (const sx of [-1, 1]) { const horn = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.3, 4), dark); horn.position.set(sx * 0.12, 1.82, -0.04); horn.rotation.z = sx * -0.5; g.add(horn); }
-  for (const sx of [-0.08, 0.08]) { const eye = new THREE.Mesh(new THREE.SphereGeometry(0.038, 6, 6), violet); eye.position.set(sx, 1.63, 0.17); g.add(eye); }
+  for (const sx of [-0.08, 0.08]) { const eye = new THREE.Mesh(new THREE.SphereGeometry(0.038, 6, 6), violet); eye.position.set(sx, 1.63, 0.17); eye.userData.eye = true; g.add(eye); }
 
   return { group: g, legL, legR, armL, armR, head, core, halo, cape: null, soulColor: 0xa855ff };
 }
@@ -529,11 +537,68 @@ function buildLich() {
 
   const skull = new THREE.Mesh(new THREE.SphereGeometry(0.19, 10, 9), bone); skull.position.y = 1.62; g.add(skull);
   const jaw = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.08, 0.18), bone); jaw.position.set(0, 1.5, 0.02); g.add(jaw);
-  for (const sx of [-0.07, 0.07]) { const eye = new THREE.Mesh(new THREE.SphereGeometry(0.03, 6, 6), iceGlow); eye.position.set(sx, 1.63, 0.15); g.add(eye); }
+  for (const sx of [-0.07, 0.07]) { const eye = new THREE.Mesh(new THREE.SphereGeometry(0.03, 6, 6), iceGlow); eye.position.set(sx, 1.63, 0.15); eye.userData.eye = true; g.add(eye); }
   // jagged ice crown
   for (let i = -2; i <= 2; i++) { const spike = new THREE.Mesh(new THREE.ConeGeometry(0.04, 0.2 + Math.abs(i) * -0.03 + 0.16, 4), ice); spike.position.set(i * 0.09, 1.82, 0); g.add(spike); }
 
   return { group: g, legL, legR, armL, armR, head: skull, core, halo, cape: null, soulColor: 0x59d6ff };
+}
+
+// (8) The Reaper — hooded death with a scythe and a cold green soul.
+function buildReaper() {
+  const g = new THREE.Group();
+  const robe = new THREE.MeshStandardMaterial({ color: 0x0c0f0c, roughness: 1 });
+  const bone = new THREE.MeshStandardMaterial({ color: 0xb9b09a, roughness: 0.8 });
+  const green = new THREE.MeshBasicMaterial({ color: 0x66ff88 });
+  const legL = robeLeg(g, -1, robe, robe), legR = robeLeg(g, 1, robe, robe);
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.5, 1.05, 8), robe); body.position.y = 1.0; g.add(body);
+  const { core, halo } = coreOrb(g, 0xbfffca, 0x66ff88, 0, 1.05, 0.24, 0.11);
+  const armL = simpleArm(g, -1, robe, bone, 1.3, 0.34), armR = simpleArm(g, 1, robe, bone, 1.3, 0.34);
+  // hooded skull
+  const hood = new THREE.Mesh(new THREE.SphereGeometry(0.24, 10, 8, 0, Math.PI * 2, 0, Math.PI * 0.72), robe); hood.position.y = 1.62; hood.rotation.x = -0.1; g.add(hood);
+  const face = new THREE.Mesh(new THREE.SphereGeometry(0.15, 8, 8), new THREE.MeshBasicMaterial({ color: 0x040604 })); face.position.set(0, 1.58, 0.05); g.add(face);
+  for (const sx of [-0.07, 0.07]) { const eye = new THREE.Mesh(new THREE.SphereGeometry(0.033, 6, 6), green); eye.position.set(sx, 1.6, 0.17); eye.userData.eye = true; g.add(eye); }
+  // scythe held to one side
+  const scythe = new THREE.Group();
+  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 2.4, 5), bone); scythe.add(shaft);
+  const blade = new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.04, 4, 10, Math.PI * 0.9), bone); blade.position.set(0.32, 1.1, 0); blade.rotation.z = -0.6; scythe.add(blade);
+  scythe.position.set(0.62, 1.1, 0.1); scythe.rotation.z = 0.12; g.add(scythe);
+  return { group: g, legL, legR, armL, armR, head: hood, core, halo, cape: null, soulColor: 0x66ff88 };
+}
+
+// (9) The Banshee — a translucent, keening spirit lit from within.
+function buildBanshee() {
+  const g = new THREE.Group();
+  const spirit = new THREE.MeshStandardMaterial({ color: 0xcfeeff, transparent: true, opacity: 0.55, roughness: 0.4, emissive: 0x2a5a70, emissiveIntensity: 0.6, side: THREE.DoubleSide });
+  const wisp = new THREE.MeshStandardMaterial({ color: 0xafe6ff, transparent: true, opacity: 0.4, roughness: 0.5 });
+  const cyan = new THREE.MeshBasicMaterial({ color: 0x8ff4ff });
+  const legL = robeLeg(g, -1, wisp, wisp), legR = robeLeg(g, 1, wisp, wisp);
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.5, 1.15, 8), spirit); body.position.y = 1.0; g.add(body);
+  const shroud = new THREE.Mesh(new THREE.ConeGeometry(0.5, 1.0, 8, 1, true), wisp); shroud.position.y = 0.7; g.add(shroud);
+  const { core, halo } = coreOrb(g, 0xe0ffff, 0x8ff4ff, 0, 1.06, 0.2, 0.13);
+  const armL = simpleArm(g, -1, spirit, spirit, 1.3, 0.32), armR = simpleArm(g, 1, spirit, spirit, 1.3, 0.32);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.21, 10, 9), spirit); head.position.y = 1.62; g.add(head);
+  const hair = new THREE.Mesh(new THREE.ConeGeometry(0.24, 0.5, 8, 1, true), wisp); hair.position.y = 1.6; g.add(hair);
+  for (const sx of [-0.07, 0.07]) { const eye = new THREE.Mesh(new THREE.SphereGeometry(0.035, 6, 6), cyan); eye.position.set(sx, 1.63, 0.17); eye.userData.eye = true; g.add(eye); }
+  return { group: g, legL, legR, armL, armR, head, core, halo, cape: null, soulColor: 0x8ff4ff };
+}
+
+// (10) The Goliath — a hulking stone golem seamed with molten light.
+function buildGoliath() {
+  const g = new THREE.Group();
+  const rock = new THREE.MeshStandardMaterial({ color: 0x2a2622, roughness: 1, metalness: 0.05 });
+  const crackMat = () => new THREE.MeshBasicMaterial({ color: 0xff7a1e, wireframe: true, transparent: true, opacity: 0.55 });
+  const orange = new THREE.MeshBasicMaterial({ color: 0xffae4a });
+  const mkLeg = (sx) => { const p = pivot(g, sx * 0.22, 0.72, 0); const leg = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.5, 0.3), rock); leg.position.y = -0.3; p.add(leg); const foot = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.18, 0.42), rock); foot.position.set(0, -0.6, 0.05); p.add(foot); return p; };
+  const legL = mkLeg(-1), legR = mkLeg(1);
+  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.95, 0.66), rock); torso.position.y = 1.15; g.add(torso);
+  const tc = new THREE.Mesh(new THREE.BoxGeometry(0.93, 0.98, 0.69), crackMat()); tc.position.y = 1.15; g.add(tc);
+  const { core, halo } = coreOrb(g, 0xffd08a, 0xff7a1e, 0, 1.12, 0.34, 0.14);
+  const mkArm = (sx) => { const p = pivot(g, sx * 0.56, 1.4, 0); const arm = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.62, 0.28), rock); arm.position.y = -0.32; p.add(arm); const crk = new THREE.Mesh(new THREE.BoxGeometry(0.29, 0.62, 0.31), crackMat()); crk.position.y = -0.32; p.add(crk); const fist = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.34, 0.34), rock); fist.position.y = -0.68; p.add(fist); return p; };
+  const armL = mkArm(-1), armR = mkArm(1);
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.38, 0.38), rock); head.position.y = 1.78; g.add(head);
+  for (const sx of [-0.1, 0.1]) { const eye = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.05, 0.03), orange); eye.position.set(sx, 1.8, 0.2); eye.userData.eye = true; g.add(eye); }
+  return { group: g, legL, legR, armL, armR, head, core, halo, cape: null, soulColor: 0xff7a1e };
 }
 
 // ============================================================================
@@ -549,4 +614,7 @@ export const SKINS = [
   { id: 'seraph',   name: 'The Ashen Seraph',    cost: 1100, defaultOwned: false, color: '#ffe9a8', blurb: 'A broken halo and wings of ash. Fallen, still radiant.', build: buildSeraph },
   { id: 'stalker',  name: 'The Void Stalker',    cost: 2000, defaultOwned: false, color: '#a855ff', blurb: 'A spiked shard of hungry dark, lit by a violet core.', build: buildStalker },
   { id: 'lich',     name: 'The Frostbound Lich', cost: 3400, defaultOwned: false, color: '#59d6ff', blurb: 'Crowned in eternal frost, its soul a shard of ice.',    build: buildLich },
+  { id: 'reaper',   name: 'The Reaper',          cost: 1600, defaultOwned: false, color: '#66ff88', blurb: 'Hooded death itself, scythe in hand, soul cold and green.', build: buildReaper },
+  { id: 'banshee',  name: 'The Banshee',         cost: 2600, defaultOwned: false, color: '#8ff4ff', blurb: 'A translucent, keening spirit lit from within.',        build: buildBanshee },
+  { id: 'goliath',  name: 'The Goliath',         cost: 4800, defaultOwned: false, color: '#ff7a1e', blurb: 'A hulking stone golem seamed with molten light.',       build: buildGoliath },
 ];

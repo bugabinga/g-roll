@@ -86,6 +86,11 @@ class Game {
     let mult = 1;
     for (const id of active) { const c = curseById(id); if (c) { c.apply(s); mult *= c.mult; } }
 
+    // 1-in-5 runs break into a wan grey daylight instead of the dread night.
+    const day = Math.random() < 0.2;
+    this.world.setDayMode(day);
+    if (day) s.fogDensity *= 0.72;
+
     // Push settings into the systems.
     this.world.setFogDensity(s.fogDensity);
     this.world.setVertigo(s.vertigo);
