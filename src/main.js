@@ -43,6 +43,7 @@ class Game {
       onAltar: () => { this.state = 'altar'; },
       onShop: () => { this.state = 'shop'; },
       onCodex: () => { this.state = 'codex'; },
+      onQuests: () => { this.state = 'quests'; },
       onSettings: () => { this.state = 'settings'; },
       onGround: (t) => { this.world.setGround(t); },   // live preview in settings
       onMenu: () => { this.state = 'menu'; },
@@ -128,6 +129,7 @@ class Game {
       fortune: this._fortune,        // the rolled Challenge fortune (null otherwise)
       nextChoiceAt: 40,       // seconds of play until the next forced wound
       debuffs: [],            // ids of wounds taken this run
+      jumps: 0, rolls: 0,     // action tallies for daily quests
     };
 
     this.player.reset();          // rolls this run's character
@@ -249,6 +251,13 @@ class Game {
     // Beating your record randomly yields a War-Key for the key-locked War-Cache.
     let keyEarned = false;
     if (record) { this.audio.toll(); if (Math.random() < 0.5) { Save.earnKeys(1); keyEarned = true; } }
+    // advance the daily quests with this run's tally
+    const g = Math.floor(r.gems);
+    Save.progressQuests({
+      gems: g, distance: Math.floor(r.distance), runs: 1,
+      jumps: r.jumps, rolls: r.rolls, wounds: r.debuffs.length,
+      scoreRun: Math.floor(r.score), gemsRun: g, survive: Math.floor(r.elapsed),
+    });
     this.player.hide();
     this.state = 'dead';
     this.ui.showGameOver({
@@ -298,8 +307,8 @@ class Game {
     this.input.update(dt);
     if (this.input.left) this.player.moveLane(-1);
     if (this.input.right) this.player.moveLane(1);
-    if (this.input.jump && this.player.jump()) this.audio.jump();
-    if (this.input.roll && this.player.roll()) this.audio.roll();
+    if (this.input.jump && this.player.jump()) { this.audio.jump(); r.jumps++; }
+    if (this.input.roll && this.player.roll()) { this.audio.roll(); r.rolls++; }
 
     this.player.update(dt);
     this.world.setSpeed(r.speed);

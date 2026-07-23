@@ -321,6 +321,48 @@ body {
 .codex-entry:not(.locked) .codex-state { color: var(--gold); }
 .codex-story { font-size: 13.5px; color: #a49e90; line-height: 1.42; margin-top: 5px; }
 
+/* ---------- daily quests ---------- */
+.quests-list { display: flex; flex-direction: column; gap: 11px; margin-bottom: 16px; }
+.quest {
+  position: relative; padding: 13px 15px 12px; border-radius: 4px; overflow: hidden;
+  border: 1px solid rgba(150,140,120,0.4);              /* fallback if no color-mix */
+  border: 1px solid color-mix(in srgb, var(--rc) 55%, transparent);
+  background: rgba(16,14,12,0.72);                      /* fallback */
+  background: linear-gradient(180deg, color-mix(in srgb, var(--rc) 12%, rgba(16,14,12,0.7)), rgba(12,10,10,0.72));
+}
+.quest::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--rc); box-shadow: 0 0 12px var(--rc); }
+.quest.ready { border-color: var(--rc); box-shadow: 0 0 20px rgba(201,162,39,0.35); }
+.quest.claimed { opacity: 0.55; }
+.quest-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.quest-rar { font-family: 'Cinzel', serif; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--rc); text-shadow: 0 0 12px color-mix(in srgb, var(--rc) 60%, transparent); }
+.quest-reward { font-family: 'Cinzel', serif; font-size: 14px; color: #f2d98a; white-space: nowrap; }
+.quest-label { font-size: 15px; color: #e7ddc9; margin: 5px 0 9px; line-height: 1.3; }
+.quest-bar { height: 7px; border-radius: 4px; background: rgba(0,0,0,0.45); overflow: hidden; }
+.quest-fill { height: 100%; background: var(--rc); background: linear-gradient(90deg, color-mix(in srgb, var(--rc) 55%, #000), var(--rc)); box-shadow: 0 0 10px var(--rc); transition: width 0.4s ease; }
+.quest-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px; }
+.quest-prog { font-size: 12.5px; color: #a49e90; font-variant-numeric: tabular-nums; }
+.quest-todo { font-size: 12px; color: var(--ash-dim); font-style: italic; }
+.quest-claimed { font-family: 'Cinzel', serif; font-size: 12px; letter-spacing: 0.08em; color: var(--gold); }
+.quest-claim {
+  font-family: 'Cinzel', serif; font-size: 13px; letter-spacing: 0.05em; color: #0d0b08; font-weight: 700;
+  padding: 7px 16px; border: none; border-radius: 3px; cursor: pointer;
+  background: linear-gradient(180deg, #ffe6a2, var(--gold)); box-shadow: 0 0 16px rgba(201,162,39,0.5);
+  animation: pulse 1.3s ease-in-out infinite;
+}
+.quest-claim:hover { filter: brightness(1.12); }
+/* mythic & exotic get an extra shimmer */
+.quest.r-mythic .quest-rar, .quest.r-exotic .quest-rar { animation: mythicPulse 0.9s ease infinite alternate; }
+.quest.r-exotic { border-width: 2px; }
+#quests-reroll.cant { opacity: 0.5; }
+/* menu badge when quests are ready to claim */
+#btn-quests.has-claim::after {
+  content: attr(data-claim); position: absolute; top: -7px; right: -7px;
+  min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px;
+  background: var(--gold); color: #0d0b08; font-family: 'Cinzel', serif; font-size: 12px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; box-shadow: 0 0 12px rgba(201,162,39,0.7);
+}
+#btn-quests { position: relative; overflow: visible; }
+
 /* ---------- wound choice ---------- */
 .choice-eyebrow { font-family: 'Cinzel', serif; letter-spacing: 0.26em; font-size: 12px; color: var(--gold); margin-bottom: 6px; }
 .choice-sub { font-style: italic; color: #a49e90; font-size: 15px; margin-bottom: 18px; text-align: center; }
@@ -486,6 +528,7 @@ body {
     <div id="menu-active-curses" class="active-curses"></div>
     <div class="btn-row">
       <button id="btn-begin" class="btn btn-primary">Begin the Descent</button>
+      <button id="btn-quests" class="btn">Daily Quests</button>
       <button id="btn-altar" class="btn">Altar of Curses</button>
       <button id="btn-shop" class="btn">Wardrobe</button>
       <button id="btn-codex" class="btn">Codex of Souls</button>
@@ -561,6 +604,22 @@ body {
     </div>
     <div id="shop-list" class="shop-list"></div>
     <div class="btn-row"><button id="shop-back" class="btn">Back</button></div>
+  </div>
+</div>
+
+<div id="screen-quests" class="screen">
+  <div class="panel">
+    <h2 class="subtitle">Daily Quests</h2>
+    <p class="altar-preamble">
+      Five bounties, renewed each day. The rarer the quest, the harder the toll —
+      and the greater the gems. Whispered of: a <b>1-in-100</b> Exotic bounty.
+    </p>
+    <div id="quests-bank" class="altar-bank"></div>
+    <div id="quests-list" class="quests-list"></div>
+    <div class="btn-row">
+      <button id="quests-reroll" class="btn btn-primary">Reroll all — <span class="gem-ico">◆</span> 100</button>
+      <button id="quests-back" class="btn">Back</button>
+    </div>
   </div>
 </div>
 
@@ -53857,6 +53916,66 @@ const CHALLENGES = [
   { id: 'featherlight', name: 'Featherlight', tone: 'good', desc: 'A gentle, roomy run — and ×1.5 gems.', apply: (s, ctx) => { s.baseObstacleGap *= 1.25; s.minObstacleGap *= 1.25; ctx.gemYield = 1.5; } },
 ];
 
+// ----------------------------------------------------------------------------
+//  DAILY QUESTS — five new bounties every day (Subway-Surfers style). Each rolls
+//  a rarity; rarer quests are harder but pay far more gems. There is a 1-in-100
+//  shot per slot at an EXOTIC quest — brutal, but a huge payout. Reroll all five
+//  for 100 gems if the draw displeases you.
+// ----------------------------------------------------------------------------
+const QUEST_RARITIES = [
+  { id: 'common',    name: 'Common',    color: '#b9b1a1', weight: 50, mult: 1,   reward: 45 },
+  { id: 'rare',      name: 'Rare',      color: '#57a9ff', weight: 26, mult: 2,   reward: 120 },
+  { id: 'epic',      name: 'Epic',      color: '#b45cff', weight: 14, mult: 3.5, reward: 280 },
+  { id: 'legendary', name: 'Legendary', color: '#ffb43a', weight: 7,  mult: 6,   reward: 650 },
+  { id: 'mythic',    name: 'Mythic',    color: '#ff4d4d', weight: 3,  mult: 10,  reward: 1500 },
+  { id: 'exotic',    name: 'Exotic',    color: '#37f5c8', weight: 0,  mult: 18,  reward: 4200 },   // 1-in-100 per slot
+];
+function questRarityById(id) { return QUEST_RARITIES.find((r) => r.id === id); }
+
+// Each template tracks one stat. mode 'sum' = accrues across the day's runs;
+// 'max' = the best any single run reaches. base is the Common target.
+const QUEST_TEMPLATES = [
+  { id: 'gems',     stat: 'gems',     mode: 'sum', base: 60,  label: (n) => `Collect ${n} crimson runes` },
+  { id: 'distance', stat: 'distance', mode: 'sum', base: 800, label: (n) => `Run ${n} metres` },
+  { id: 'runs',     stat: 'runs',     mode: 'sum', base: 4,   label: (n) => `Complete ${n} descents` },
+  { id: 'jumps',    stat: 'jumps',    mode: 'sum', base: 40,  label: (n) => `Leap ${n} times` },
+  { id: 'rolls',    stat: 'rolls',    mode: 'sum', base: 40,  label: (n) => `Roll ${n} times` },
+  { id: 'wounds',   stat: 'wounds',   mode: 'sum', base: 3,   label: (n) => `Take ${n} wounds at the altar` },
+  { id: 'scoreRun', stat: 'scoreRun', mode: 'max', base: 500, label: (n) => `Reach ${n} glory in one run` },
+  { id: 'gemsRun',  stat: 'gemsRun',  mode: 'max', base: 35,  label: (n) => `Collect ${n} runes in one run` },
+  { id: 'survive',  stat: 'survive',  mode: 'max', base: 60,  label: (n) => `Survive ${n}s in a single run` },
+];
+function questTemplateById(id) { return QUEST_TEMPLATES.find((t) => t.id === id); }
+
+function niceRound(n) {
+  if (n <= 20) return Math.max(1, Math.round(n));
+  if (n <= 100) return Math.round(n / 5) * 5;
+  if (n <= 1000) return Math.round(n / 10) * 10;
+  return Math.round(n / 50) * 50;
+}
+
+function rollQuestRarity() {
+  if (Math.random() < 0.01) return questRarityById('exotic');   // 1-in-100 exotic
+  const pool = QUEST_RARITIES.filter((r) => r.weight > 0);
+  const total = pool.reduce((s, r) => s + r.weight, 0);
+  let x = Math.random() * total;
+  for (const r of pool) { x -= r.weight; if (x <= 0) return r; }
+  return pool[0];
+}
+
+// Five distinct quest templates, each with its own rolled rarity.
+function generateDailyQuests() {
+  const tpls = QUEST_TEMPLATES.slice().sort(() => Math.random() - 0.5).slice(0, 5);
+  return tpls.map((t) => {
+    const rr = rollQuestRarity();
+    return {
+      tpl: t.id, stat: t.stat, mode: t.mode, rarity: rr.id,
+      target: niceRound(t.base * rr.mult), reward: rr.reward,
+      progress: 0, claimed: false,
+    };
+  });
+}
+
 
 /* ===== save.js ===== */
 // ============================================================================
@@ -53875,6 +53994,7 @@ const DEFAULT = {
   activeCurses: [], // curse ids toggled on for the next run (subset of unlocked)
   skins: [],        // character/skin ids bought in the Wardrobe (defaults are always owned)
   keys: 0,          // war-keys — earned by beating your record, spent on the War-Cache
+  quests: null,     // { day:'YYYY-MM-DD', list:[...] } — regenerated each new day
   mode: 'night',    // atmosphere: 'night' | 'day' | 'bloodmoon'
   ground: 'stone',  // floor skin: 'stone' | 'milkyway' | 'lava' | 'frost'
   muted: false,
@@ -53937,6 +54057,51 @@ const Save = {
   get keys() { return state.keys || 0; },
   earnKeys(n = 1) { state.keys = (state.keys || 0) + n; persist(); return state.keys; },
   spendKey() { if ((state.keys || 0) < 1) return false; state.keys -= 1; persist(); return true; },
+
+  // --- Daily quests --- five bounties a day; a fresh set rolls each new date.
+  _questDay() { return new Date().toISOString().slice(0, 10); },   // 'YYYY-MM-DD' (UTC)
+  _ensureQuests() {
+    const today = this._questDay();
+    if (!state.quests || state.quests.day !== today || !Array.isArray(state.quests.list) || state.quests.list.length !== 5) {
+      state.quests = { day: today, list: generateDailyQuests() };
+      persist();
+    }
+  },
+  get quests() { this._ensureQuests(); return state.quests.list.map((q) => ({ ...q })); },
+  rerollQuests(cost = 100) {
+    this._ensureQuests();
+    if (state.bank < cost) return false;
+    state.bank -= cost;
+    state.quests.list = generateDailyQuests();
+    persist();
+    return true;
+  },
+  // Feed a finished run's stats; advance every unclaimed quest.
+  progressQuests(stats) {
+    this._ensureQuests();
+    for (const q of state.quests.list) {
+      if (q.claimed) continue;
+      const v = stats[q.stat] || 0;
+      q.progress = q.mode === 'sum'
+        ? Math.min(q.target, q.progress + v)
+        : Math.min(q.target, Math.max(q.progress, v));
+    }
+    persist();
+  },
+  claimQuest(i) {
+    this._ensureQuests();
+    const q = state.quests.list[i];
+    if (!q || q.claimed || q.progress < q.target) return 0;
+    q.claimed = true;
+    state.bank = Math.round(state.bank + q.reward);
+    persist();
+    return q.reward;
+  },
+  // count of quests ready to claim — for a menu badge
+  questsClaimable() {
+    this._ensureQuests();
+    return state.quests.list.filter((q) => !q.claimed && q.progress >= q.target).length;
+  },
 
   // Pay once to unlock a curse forever. After that it's free to toggle on/off.
   unlockCurse(id, cost) {
@@ -56086,23 +56251,27 @@ const FACTORY = {
 };
 
 function makeGem() {
-  // A faceted rune. The bright core (unlit MeshBasic) + a translucent standard
-  // shell make it glow without needing a per-gem PointLight (huge perf win).
+  // A cut RUBY — a proper brilliant-cut red gemstone (crown + girdle + pavilion)
+  // with chunky flat-shaded facets, bright emissive fill, white facet-edge lines
+  // and a sparkle, echoing a pixel-art ruby. No per-gem light (glow via sprites).
   const g = new THREE.Group();
-  const core = new THREE.Mesh(
-    new THREE.OctahedronGeometry(0.24, 0),
-    new THREE.MeshBasicMaterial({ color: 0xff4d4d })
-  );
-  g.add(core);
-  const shell = new THREE.Mesh(
-    new THREE.OctahedronGeometry(0.38, 0),
-    new THREE.MeshStandardMaterial({
-      color: 0xb31111, emissive: 0xff1a1a, emissiveIntensity: 2.2,
-      roughness: 0.1, metalness: 0.4, transparent: true, opacity: 0.5,
-    })
-  );
-  g.add(shell);
-  g.add(glowSprite(0xff4d4d, 1.5));    // soft bloom halo
+  const ruby = new THREE.MeshStandardMaterial({
+    color: 0xd11a2a, emissive: 0xff1830, emissiveIntensity: 1.7,
+    roughness: 0.16, metalness: 0.35, flatShading: true,
+  });
+  const R = 0.34;
+  const crown = new THREE.Mesh(new THREE.ConeGeometry(R, 0.2, 6), ruby); crown.position.y = 0.11; g.add(crown);
+  const girdle = new THREE.Mesh(new THREE.CylinderGeometry(R, R, 0.05, 6), ruby); g.add(girdle);
+  const pavilion = new THREE.Mesh(new THREE.ConeGeometry(R, 0.42, 6), ruby); pavilion.position.y = -0.235; pavilion.rotation.x = Math.PI; g.add(pavilion);
+
+  // bright inner core (unlit) so the stone glows from within
+  const core = new THREE.Mesh(new THREE.OctahedronGeometry(0.15, 0), new THREE.MeshBasicMaterial({ color: 0xff6b6b })); g.add(core);
+  // white facet-edge highlights (the pixel gem's sparkle lines)
+  const edges = new THREE.Mesh(new THREE.ConeGeometry(R + 0.006, 0.2, 6),
+    new THREE.MeshBasicMaterial({ color: 0xffd6d6, wireframe: true, transparent: true, opacity: 0.5 }));
+  edges.position.y = 0.11; g.add(edges);
+  const sparkle = glowSprite(0xffffff, 0.55); sparkle.position.set(0.09, 0.15, 0.13); g.add(sparkle);
+  g.add(glowSprite(0xff3040, 1.7));    // soft red bloom halo
   g.userData.core = core;
   return g;
 }
@@ -56496,6 +56665,12 @@ class UI {
     $('btn-codex').onclick = () => this.showCodex();
     $('codex-back').onclick = () => this.showMenu();
 
+    $('btn-quests').onclick = () => this.showQuests();
+    $('quests-back').onclick = () => this.showMenu();
+    $('quests-reroll').onclick = () => {
+      if (Save.rerollQuests(100)) { this._renderQuests(); this.refreshBank(); }
+    };
+
     $('btn-settings').onclick = () => this.showSettings();
     $('settings-back').onclick = () => this.showMenu();
     $('set-sound').onclick = () => {
@@ -56511,7 +56686,7 @@ class UI {
 
   // -- screen switching ------------------------------------------------------
   _hideAll() {
-    for (const s of ['menu', 'altar', 'gameover', 'choice', 'intro', 'shop', 'settings', 'codex']) $('screen-' + s).classList.remove('show');
+    for (const s of ['menu', 'altar', 'gameover', 'choice', 'intro', 'shop', 'settings', 'codex', 'quests']) $('screen-' + s).classList.remove('show');
     $('hud').classList.remove('show');
   }
 
@@ -56584,6 +56759,10 @@ class UI {
     this._hideAll();
     this.refreshBank();
     this._renderMenuCurses();
+    // badge the Quests button when bounties are ready to claim
+    const claim = Save.questsClaimable();
+    const qb = $('btn-quests');
+    if (qb) { qb.classList.toggle('has-claim', claim > 0); qb.dataset.claim = claim; }
     $('screen-menu').classList.add('show');
     this.h.onMenu && this.h.onMenu();
   }
@@ -56630,6 +56809,54 @@ class UI {
       list.appendChild(el);
     }
     $('codex-count').textContent = `${owned} / ${SKINS.length} souls bound`;
+  }
+
+  // -- Daily Quests ---------------------------------------------------------
+  showQuests() {
+    this._hideAll();
+    this._renderQuests();
+    $('screen-quests').classList.add('show');
+    this.h.onQuests && this.h.onQuests();
+  }
+
+  _renderQuests() {
+    const list = $('quests-list');
+    list.innerHTML = '';
+    const quests = Save.quests;
+    quests.forEach((q, i) => {
+      const rr = questRarityById(q.rarity) || {};
+      const tpl = questTemplateById(q.tpl) || {};
+      const label = tpl.label ? tpl.label(q.target) : q.tpl;
+      const done = q.progress >= q.target;
+      const pct = Math.min(100, (q.progress / q.target) * 100);
+      const el = document.createElement('div');
+      el.className = 'quest r-' + q.rarity + (q.claimed ? ' claimed' : '') + (done && !q.claimed ? ' ready' : '');
+      el.style.setProperty('--rc', rr.color || '#b9b1a1');
+      el.innerHTML = `
+        <div class="quest-top">
+          <span class="quest-rar">${rr.name || ''}</span>
+          <span class="quest-reward">${gem} ${q.reward}</span>
+        </div>
+        <div class="quest-label">${label}</div>
+        <div class="quest-bar"><div class="quest-fill" style="width:${pct}%"></div></div>
+        <div class="quest-foot">
+          <span class="quest-prog">${Math.min(q.progress, q.target).toLocaleString()} / ${q.target.toLocaleString()}</span>
+          ${q.claimed
+            ? '<span class="quest-claimed">✦ claimed</span>'
+            : (done ? '<button class="quest-claim">Claim</button>' : '<span class="quest-todo">in progress</span>')}
+        </div>`;
+      if (done && !q.claimed) {
+        el.querySelector('.quest-claim').onclick = () => {
+          const won = Save.claimQuest(i);
+          if (won > 0) { this.audio && this.audio.gem && this.audio.gem(); this._renderQuests(); this.refreshBank(); }
+        };
+      }
+      list.appendChild(el);
+    });
+    const canReroll = Save.canAfford(100);
+    $('quests-reroll').classList.toggle('cant', !canReroll);
+    $('quests-reroll').innerHTML = `Reroll all — ${gem} 100`;
+    $('quests-bank').innerHTML = `Bank: ${gem} ${Save.bank}`;
   }
 
   showShop() {
@@ -56966,6 +57193,7 @@ class Game {
       onAltar: () => { this.state = 'altar'; },
       onShop: () => { this.state = 'shop'; },
       onCodex: () => { this.state = 'codex'; },
+      onQuests: () => { this.state = 'quests'; },
       onSettings: () => { this.state = 'settings'; },
       onGround: (t) => { this.world.setGround(t); },   // live preview in settings
       onMenu: () => { this.state = 'menu'; },
@@ -57051,6 +57279,7 @@ class Game {
       fortune: this._fortune,        // the rolled Challenge fortune (null otherwise)
       nextChoiceAt: 40,       // seconds of play until the next forced wound
       debuffs: [],            // ids of wounds taken this run
+      jumps: 0, rolls: 0,     // action tallies for daily quests
     };
 
     this.player.reset();          // rolls this run's character
@@ -57172,6 +57401,13 @@ class Game {
     // Beating your record randomly yields a War-Key for the key-locked War-Cache.
     let keyEarned = false;
     if (record) { this.audio.toll(); if (Math.random() < 0.5) { Save.earnKeys(1); keyEarned = true; } }
+    // advance the daily quests with this run's tally
+    const g = Math.floor(r.gems);
+    Save.progressQuests({
+      gems: g, distance: Math.floor(r.distance), runs: 1,
+      jumps: r.jumps, rolls: r.rolls, wounds: r.debuffs.length,
+      scoreRun: Math.floor(r.score), gemsRun: g, survive: Math.floor(r.elapsed),
+    });
     this.player.hide();
     this.state = 'dead';
     this.ui.showGameOver({
@@ -57221,8 +57457,8 @@ class Game {
     this.input.update(dt);
     if (this.input.left) this.player.moveLane(-1);
     if (this.input.right) this.player.moveLane(1);
-    if (this.input.jump && this.player.jump()) this.audio.jump();
-    if (this.input.roll && this.player.roll()) this.audio.roll();
+    if (this.input.jump && this.player.jump()) { this.audio.jump(); r.jumps++; }
+    if (this.input.roll && this.player.roll()) { this.audio.roll(); r.rolls++; }
 
     this.player.update(dt);
     this.world.setSpeed(r.speed);

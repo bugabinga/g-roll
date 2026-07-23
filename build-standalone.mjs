@@ -72,6 +72,7 @@ const body = `
     <div id="menu-active-curses" class="active-curses"></div>
     <div class="btn-row">
       <button id="btn-begin" class="btn btn-primary">Begin the Descent</button>
+      <button id="btn-quests" class="btn">Daily Quests</button>
       <button id="btn-altar" class="btn">Altar of Curses</button>
       <button id="btn-shop" class="btn">Wardrobe</button>
       <button id="btn-codex" class="btn">Codex of Souls</button>
@@ -147,6 +148,22 @@ const body = `
     </div>
     <div id="shop-list" class="shop-list"></div>
     <div class="btn-row"><button id="shop-back" class="btn">Back</button></div>
+  </div>
+</div>
+
+<div id="screen-quests" class="screen">
+  <div class="panel">
+    <h2 class="subtitle">Daily Quests</h2>
+    <p class="altar-preamble">
+      Five bounties, renewed each day. The rarer the quest, the harder the toll —
+      and the greater the gems. Whispered of: a <b>1-in-100</b> Exotic bounty.
+    </p>
+    <div id="quests-bank" class="altar-bank"></div>
+    <div id="quests-list" class="quests-list"></div>
+    <div class="btn-row">
+      <button id="quests-reroll" class="btn btn-primary">Reroll all — <span class="gem-ico">◆</span> 100</button>
+      <button id="quests-back" class="btn">Back</button>
+    </div>
   </div>
 </div>
 

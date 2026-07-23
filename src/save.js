@@ -3,6 +3,8 @@
 //  Everything lives in localStorage. No accounts, no servers, no monetisation.
 // ============================================================================
 
+import { generateDailyQuests } from './config.js';
+
 const KEY = 'g-roll.save.v1';
 
 const DEFAULT = {
@@ -14,6 +16,7 @@ const DEFAULT = {
   activeCurses: [], // curse ids toggled on for the next run (subset of unlocked)
   skins: [],        // character/skin ids bought in the Wardrobe (defaults are always owned)
   keys: 0,          // war-keys — earned by beating your record, spent on the War-Cache
+  quests: null,     // { day:'YYYY-MM-DD', list:[...] } — regenerated each new day
   mode: 'night',    // atmosphere: 'night' | 'day' | 'bloodmoon'
   ground: 'stone',  // floor skin: 'stone' | 'milkyway' | 'lava' | 'frost'
   muted: false,
@@ -76,6 +79,51 @@ export const Save = {
   get keys() { return state.keys || 0; },
   earnKeys(n = 1) { state.keys = (state.keys || 0) + n; persist(); return state.keys; },
   spendKey() { if ((state.keys || 0) < 1) return false; state.keys -= 1; persist(); return true; },
+
+  // --- Daily quests --- five bounties a day; a fresh set rolls each new date.
+  _questDay() { return new Date().toISOString().slice(0, 10); },   // 'YYYY-MM-DD' (UTC)
+  _ensureQuests() {
+    const today = this._questDay();
+    if (!state.quests || state.quests.day !== today || !Array.isArray(state.quests.list) || state.quests.list.length !== 5) {
+      state.quests = { day: today, list: generateDailyQuests() };
+      persist();
+    }
+  },
+  get quests() { this._ensureQuests(); return state.quests.list.map((q) => ({ ...q })); },
+  rerollQuests(cost = 100) {
+    this._ensureQuests();
+    if (state.bank < cost) return false;
+    state.bank -= cost;
+    state.quests.list = generateDailyQuests();
+    persist();
+    return true;
+  },
+  // Feed a finished run's stats; advance every unclaimed quest.
+  progressQuests(stats) {
+    this._ensureQuests();
+    for (const q of state.quests.list) {
+      if (q.claimed) continue;
+      const v = stats[q.stat] || 0;
+      q.progress = q.mode === 'sum'
+        ? Math.min(q.target, q.progress + v)
+        : Math.min(q.target, Math.max(q.progress, v));
+    }
+    persist();
+  },
+  claimQuest(i) {
+    this._ensureQuests();
+    const q = state.quests.list[i];
+    if (!q || q.claimed || q.progress < q.target) return 0;
+    q.claimed = true;
+    state.bank = Math.round(state.bank + q.reward);
+    persist();
+    return q.reward;
+  },
+  // count of quests ready to claim — for a menu badge
+  questsClaimable() {
+    this._ensureQuests();
+    return state.quests.list.filter((q) => !q.claimed && q.progress >= q.target).length;
+  },
 
   // Pay once to unlock a curse forever. After that it's free to toggle on/off.
   unlockCurse(id, cost) {

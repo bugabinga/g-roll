@@ -4,7 +4,7 @@
 // ============================================================================
 
 import { Save } from './save.js';
-import { CURSES, curseById, debuffById } from './config.js';
+import { CURSES, curseById, debuffById, questTemplateById, questRarityById } from './config.js';
 import { SKINS } from './player.js';
 
 const $ = (id) => document.getElementById(id);
@@ -52,6 +52,12 @@ export class UI {
     $('btn-codex').onclick = () => this.showCodex();
     $('codex-back').onclick = () => this.showMenu();
 
+    $('btn-quests').onclick = () => this.showQuests();
+    $('quests-back').onclick = () => this.showMenu();
+    $('quests-reroll').onclick = () => {
+      if (Save.rerollQuests(100)) { this._renderQuests(); this.refreshBank(); }
+    };
+
     $('btn-settings').onclick = () => this.showSettings();
     $('settings-back').onclick = () => this.showMenu();
     $('set-sound').onclick = () => {
@@ -67,7 +73,7 @@ export class UI {
 
   // -- screen switching ------------------------------------------------------
   _hideAll() {
-    for (const s of ['menu', 'altar', 'gameover', 'choice', 'intro', 'shop', 'settings', 'codex']) $('screen-' + s).classList.remove('show');
+    for (const s of ['menu', 'altar', 'gameover', 'choice', 'intro', 'shop', 'settings', 'codex', 'quests']) $('screen-' + s).classList.remove('show');
     $('hud').classList.remove('show');
   }
 
@@ -140,6 +146,10 @@ export class UI {
     this._hideAll();
     this.refreshBank();
     this._renderMenuCurses();
+    // badge the Quests button when bounties are ready to claim
+    const claim = Save.questsClaimable();
+    const qb = $('btn-quests');
+    if (qb) { qb.classList.toggle('has-claim', claim > 0); qb.dataset.claim = claim; }
     $('screen-menu').classList.add('show');
     this.h.onMenu && this.h.onMenu();
   }
@@ -186,6 +196,54 @@ export class UI {
       list.appendChild(el);
     }
     $('codex-count').textContent = `${owned} / ${SKINS.length} souls bound`;
+  }
+
+  // -- Daily Quests ---------------------------------------------------------
+  showQuests() {
+    this._hideAll();
+    this._renderQuests();
+    $('screen-quests').classList.add('show');
+    this.h.onQuests && this.h.onQuests();
+  }
+
+  _renderQuests() {
+    const list = $('quests-list');
+    list.innerHTML = '';
+    const quests = Save.quests;
+    quests.forEach((q, i) => {
+      const rr = questRarityById(q.rarity) || {};
+      const tpl = questTemplateById(q.tpl) || {};
+      const label = tpl.label ? tpl.label(q.target) : q.tpl;
+      const done = q.progress >= q.target;
+      const pct = Math.min(100, (q.progress / q.target) * 100);
+      const el = document.createElement('div');
+      el.className = 'quest r-' + q.rarity + (q.claimed ? ' claimed' : '') + (done && !q.claimed ? ' ready' : '');
+      el.style.setProperty('--rc', rr.color || '#b9b1a1');
+      el.innerHTML = `
+        <div class="quest-top">
+          <span class="quest-rar">${rr.name || ''}</span>
+          <span class="quest-reward">${gem} ${q.reward}</span>
+        </div>
+        <div class="quest-label">${label}</div>
+        <div class="quest-bar"><div class="quest-fill" style="width:${pct}%"></div></div>
+        <div class="quest-foot">
+          <span class="quest-prog">${Math.min(q.progress, q.target).toLocaleString()} / ${q.target.toLocaleString()}</span>
+          ${q.claimed
+            ? '<span class="quest-claimed">✦ claimed</span>'
+            : (done ? '<button class="quest-claim">Claim</button>' : '<span class="quest-todo">in progress</span>')}
+        </div>`;
+      if (done && !q.claimed) {
+        el.querySelector('.quest-claim').onclick = () => {
+          const won = Save.claimQuest(i);
+          if (won > 0) { this.audio && this.audio.gem && this.audio.gem(); this._renderQuests(); this.refreshBank(); }
+        };
+      }
+      list.appendChild(el);
+    });
+    const canReroll = Save.canAfford(100);
+    $('quests-reroll').classList.toggle('cant', !canReroll);
+    $('quests-reroll').innerHTML = `Reroll all — ${gem} 100`;
+    $('quests-bank').innerHTML = `Bank: ${gem} ${Save.bank}`;
   }
 
   showShop() {

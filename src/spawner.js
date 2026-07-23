@@ -282,23 +282,27 @@ const FACTORY = {
 };
 
 function makeGem() {
-  // A faceted rune. The bright core (unlit MeshBasic) + a translucent standard
-  // shell make it glow without needing a per-gem PointLight (huge perf win).
+  // A cut RUBY — a proper brilliant-cut red gemstone (crown + girdle + pavilion)
+  // with chunky flat-shaded facets, bright emissive fill, white facet-edge lines
+  // and a sparkle, echoing a pixel-art ruby. No per-gem light (glow via sprites).
   const g = new THREE.Group();
-  const core = new THREE.Mesh(
-    new THREE.OctahedronGeometry(0.24, 0),
-    new THREE.MeshBasicMaterial({ color: 0xff4d4d })
-  );
-  g.add(core);
-  const shell = new THREE.Mesh(
-    new THREE.OctahedronGeometry(0.38, 0),
-    new THREE.MeshStandardMaterial({
-      color: 0xb31111, emissive: 0xff1a1a, emissiveIntensity: 2.2,
-      roughness: 0.1, metalness: 0.4, transparent: true, opacity: 0.5,
-    })
-  );
-  g.add(shell);
-  g.add(glowSprite(0xff4d4d, 1.5));    // soft bloom halo
+  const ruby = new THREE.MeshStandardMaterial({
+    color: 0xd11a2a, emissive: 0xff1830, emissiveIntensity: 1.7,
+    roughness: 0.16, metalness: 0.35, flatShading: true,
+  });
+  const R = 0.34;
+  const crown = new THREE.Mesh(new THREE.ConeGeometry(R, 0.2, 6), ruby); crown.position.y = 0.11; g.add(crown);
+  const girdle = new THREE.Mesh(new THREE.CylinderGeometry(R, R, 0.05, 6), ruby); g.add(girdle);
+  const pavilion = new THREE.Mesh(new THREE.ConeGeometry(R, 0.42, 6), ruby); pavilion.position.y = -0.235; pavilion.rotation.x = Math.PI; g.add(pavilion);
+
+  // bright inner core (unlit) so the stone glows from within
+  const core = new THREE.Mesh(new THREE.OctahedronGeometry(0.15, 0), new THREE.MeshBasicMaterial({ color: 0xff6b6b })); g.add(core);
+  // white facet-edge highlights (the pixel gem's sparkle lines)
+  const edges = new THREE.Mesh(new THREE.ConeGeometry(R + 0.006, 0.2, 6),
+    new THREE.MeshBasicMaterial({ color: 0xffd6d6, wireframe: true, transparent: true, opacity: 0.5 }));
+  edges.position.y = 0.11; g.add(edges);
+  const sparkle = glowSprite(0xffffff, 0.55); sparkle.position.set(0.09, 0.15, 0.13); g.add(sparkle);
+  g.add(glowSprite(0xff3040, 1.7));    // soft red bloom halo
   g.userData.core = core;
   return g;
 }

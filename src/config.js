@@ -192,3 +192,63 @@ export const CHALLENGES = [
   { id: 'bloodpact', name: 'Bloodpact',    tone: 'mixed', desc: 'The blood moon rises — ×2 speed AND ×2 gems.', apply: (s, ctx) => { s.startSpeed *= 2; s.maxSpeed *= 1.9; s.baseObstacleGap *= 1.9; s.minObstacleGap *= 1.9; ctx.gemYield = 2; ctx.visual = 'bloodmoon'; } },
   { id: 'featherlight', name: 'Featherlight', tone: 'good', desc: 'A gentle, roomy run — and ×1.5 gems.', apply: (s, ctx) => { s.baseObstacleGap *= 1.25; s.minObstacleGap *= 1.25; ctx.gemYield = 1.5; } },
 ];
+
+// ----------------------------------------------------------------------------
+//  DAILY QUESTS — five new bounties every day (Subway-Surfers style). Each rolls
+//  a rarity; rarer quests are harder but pay far more gems. There is a 1-in-100
+//  shot per slot at an EXOTIC quest — brutal, but a huge payout. Reroll all five
+//  for 100 gems if the draw displeases you.
+// ----------------------------------------------------------------------------
+export const QUEST_RARITIES = [
+  { id: 'common',    name: 'Common',    color: '#b9b1a1', weight: 50, mult: 1,   reward: 45 },
+  { id: 'rare',      name: 'Rare',      color: '#57a9ff', weight: 26, mult: 2,   reward: 120 },
+  { id: 'epic',      name: 'Epic',      color: '#b45cff', weight: 14, mult: 3.5, reward: 280 },
+  { id: 'legendary', name: 'Legendary', color: '#ffb43a', weight: 7,  mult: 6,   reward: 650 },
+  { id: 'mythic',    name: 'Mythic',    color: '#ff4d4d', weight: 3,  mult: 10,  reward: 1500 },
+  { id: 'exotic',    name: 'Exotic',    color: '#37f5c8', weight: 0,  mult: 18,  reward: 4200 },   // 1-in-100 per slot
+];
+export function questRarityById(id) { return QUEST_RARITIES.find((r) => r.id === id); }
+
+// Each template tracks one stat. mode 'sum' = accrues across the day's runs;
+// 'max' = the best any single run reaches. base is the Common target.
+export const QUEST_TEMPLATES = [
+  { id: 'gems',     stat: 'gems',     mode: 'sum', base: 60,  label: (n) => `Collect ${n} crimson runes` },
+  { id: 'distance', stat: 'distance', mode: 'sum', base: 800, label: (n) => `Run ${n} metres` },
+  { id: 'runs',     stat: 'runs',     mode: 'sum', base: 4,   label: (n) => `Complete ${n} descents` },
+  { id: 'jumps',    stat: 'jumps',    mode: 'sum', base: 40,  label: (n) => `Leap ${n} times` },
+  { id: 'rolls',    stat: 'rolls',    mode: 'sum', base: 40,  label: (n) => `Roll ${n} times` },
+  { id: 'wounds',   stat: 'wounds',   mode: 'sum', base: 3,   label: (n) => `Take ${n} wounds at the altar` },
+  { id: 'scoreRun', stat: 'scoreRun', mode: 'max', base: 500, label: (n) => `Reach ${n} glory in one run` },
+  { id: 'gemsRun',  stat: 'gemsRun',  mode: 'max', base: 35,  label: (n) => `Collect ${n} runes in one run` },
+  { id: 'survive',  stat: 'survive',  mode: 'max', base: 60,  label: (n) => `Survive ${n}s in a single run` },
+];
+export function questTemplateById(id) { return QUEST_TEMPLATES.find((t) => t.id === id); }
+
+function niceRound(n) {
+  if (n <= 20) return Math.max(1, Math.round(n));
+  if (n <= 100) return Math.round(n / 5) * 5;
+  if (n <= 1000) return Math.round(n / 10) * 10;
+  return Math.round(n / 50) * 50;
+}
+
+export function rollQuestRarity() {
+  if (Math.random() < 0.01) return questRarityById('exotic');   // 1-in-100 exotic
+  const pool = QUEST_RARITIES.filter((r) => r.weight > 0);
+  const total = pool.reduce((s, r) => s + r.weight, 0);
+  let x = Math.random() * total;
+  for (const r of pool) { x -= r.weight; if (x <= 0) return r; }
+  return pool[0];
+}
+
+// Five distinct quest templates, each with its own rolled rarity.
+export function generateDailyQuests() {
+  const tpls = QUEST_TEMPLATES.slice().sort(() => Math.random() - 0.5).slice(0, 5);
+  return tpls.map((t) => {
+    const rr = rollQuestRarity();
+    return {
+      tpl: t.id, stat: t.stat, mode: t.mode, rarity: rr.id,
+      target: niceRound(t.base * rr.mult), reward: rr.reward,
+      progress: 0, claimed: false,
+    };
+  });
+}
