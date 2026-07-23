@@ -180,7 +180,7 @@ class Game {
   }
 
   _startRunning() {
-    this.player.group.rotation.y = 0;    // face forward for the run
+    this.player.group.rotation.set(0, 0, 0);   // facing is driven by the rig now
     this.input.clear();
     this.input.enabled = true;
     this.ui.hideIntro();
