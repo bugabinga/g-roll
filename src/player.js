@@ -332,6 +332,18 @@ function addEyes(g, mat, y, z, r = 0.035, spread = 0.07) {
 // a hood shell over the head
 function hoodMesh(g, mat, y = 1.66) { const h = new THREE.Mesh(new THREE.SphereGeometry(0.25, 12, 9, 0, Math.PI * 2, 0, Math.PI * 0.72), mat); h.position.y = y; h.rotation.x = -0.1; g.add(h); return h; }
 
+// Plate LEG ARMOUR (greaves): armoured cuisse, knee cop, greave and sabaton
+// clamped onto the humanBase leg pivots so they swing with the run. Fixes the
+// "armoured torso, bare legs" look on the plate skins.
+function greaves(legL, legR, plate, trim = plate) {
+  for (const leg of [legL, legR]) {
+    const cuisse = new THREE.Mesh(new THREE.CylinderGeometry(0.155, 0.135, 0.34, 8), plate); cuisse.position.y = -0.24; leg.add(cuisse);
+    const knee = new THREE.Mesh(new THREE.SphereGeometry(0.135, 8, 7), trim); knee.position.y = -0.4; leg.add(knee);
+    const greave = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.105, 0.32, 8), plate); greave.position.y = -0.55; leg.add(greave);
+    const sabaton = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.13, 0.34), trim); sabaton.position.set(0, -0.74, 0.05); leg.add(sabaton);
+  }
+}
+
 // (1) The Hollow Knight — armoured wraith, amber soul, tattered cape.
 function buildKnight() {
   const armor = new THREE.MeshStandardMaterial({ color: 0x1b1b24, roughness: 0.5, metalness: 0.55 });
@@ -339,6 +351,7 @@ function buildKnight() {
   const cloth = new THREE.MeshStandardMaterial({ color: 0x3a0d0d, roughness: 1.0 });
   const glow  = new THREE.MeshBasicMaterial({ color: 0xffb340 });
   const base = humanBase(armor, armor); const g = base.group;
+  greaves(base.legL, base.legR, armor, trim);   // full-plate legs to match the cuirass
 
   const { core, halo } = coreOrb(g, 0xffe08a, 0xff7a1e, 0, 1.36, 0.26, 0.12);
   for (const sx of [-1, 1]) {
@@ -545,6 +558,7 @@ function buildSovereign() {
   const goldLit = new THREE.MeshStandardMaterial({ color: 0xe8c65a, emissive: 0xffcf4a, emissiveIntensity: 0.5, roughness: 0.2, metalness: 1 });
   const glow = new THREE.MeshBasicMaterial({ color: 0xfff2b0 });
   const base = humanBase(gold, goldLit); const g = base.group;
+  greaves(base.legL, base.legR, gold, goldLit);   // gilded greaves to match the cuirass
 
   const { core, halo } = coreOrb(g, 0xfff6cc, 0xffd24a, 0, 1.36, 0.28, 0.15);
   // pauldrons + radiant wings
@@ -561,21 +575,67 @@ function buildSovereign() {
   return { group: g, legL: base.legL, legR: base.legR, armL: base.armL, armR: base.armR, head, core, halo, cape: null, soulColor: 0xffd24a };
 }
 
+// (12) The Orc Warlord — MYTHIC. Iron-shouldered, bare-legged for the charge.
+//      Won only from the key-locked War-Cache (a 1-in-10 pull).
+function buildWarlord() {
+  const iron    = new THREE.MeshStandardMaterial({ color: 0x33302b, roughness: 0.5, metalness: 0.62 });
+  const skin    = new THREE.MeshStandardMaterial({ color: 0x51702f, roughness: 0.92 });   // orc green — bare arms & legs
+  const leather = new THREE.MeshStandardMaterial({ color: 0x281a10, roughness: 1 });
+  const tuskMat = new THREE.MeshStandardMaterial({ color: 0xe4dcc0, roughness: 0.55 });
+  const rage    = new THREE.MeshBasicMaterial({ color: 0xff6a2a });
+  // body = iron cuirass, limbs = green skin → an armoured torso over bare muscle
+  const base = humanBase(iron, skin, { bulk: 1.32 }); const g = base.group;
+
+  const { core, halo } = coreOrb(g, 0xffb47a, 0xff6a2a, 0, 1.36, 0.24, 0.1);
+
+  // huge spiked pauldrons
+  for (const sx of [-1, 1]) {
+    const pa = new THREE.Mesh(new THREE.SphereGeometry(0.23, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.62), iron); pa.position.set(sx * 0.42, 1.5, 0); g.add(pa);
+    const spk = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.24, 5), iron); spk.position.set(sx * 0.46, 1.66, 0); spk.rotation.z = sx * -0.32; g.add(spk);
+  }
+  // leather war-kilt over the hips — NO leg armour below it (bare orc legs)
+  const kilt = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.38, 0.42, 10, 1, true), leather); kilt.position.y = 0.8; g.add(kilt);
+
+  // brutish head: heavy brow, under-bite jaw, two upward tusks
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 10), skin); head.position.y = 1.72; head.scale.set(1.06, 1, 1); g.add(head);
+  const brow = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.09, 0.12), skin); brow.position.set(0, 1.77, 0.17); g.add(brow);
+  const jaw = new THREE.Mesh(new THREE.SphereGeometry(0.18, 10, 8), skin); jaw.position.set(0, 1.62, 0.06); jaw.scale.set(1.06, 0.64, 1); g.add(jaw);
+  for (const sx of [-1, 1]) { const t = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.22, 5), tuskMat); t.position.set(sx * 0.1, 1.66, 0.2); t.rotation.x = 0.35; g.add(t); }
+  addEyes(g, rage, 1.73, 0.18, 0.036, 0.09);
+  // bristling black mohawk
+  for (let i = -2; i <= 2; i++) { const h = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.28 - Math.abs(i) * 0.03, 4), leather); h.position.set(0, 1.93, -i * 0.06); h.rotation.x = -i * 0.22; g.add(h); }
+
+  return { group: g, legL: base.legL, legR: base.legR, armL: base.armL, armR: base.armR, head, core, halo, cape: null, soulColor: 0xff6a2a };
+}
+
 // ============================================================================
 //  Skin registry. The first three are free (owned by default); the rest are
 //  bought in the Wardrobe with gems. Every run rolls one at random, equal odds,
 //  from the set you own. All are cosmetic — identical hitbox and physics.
 // ============================================================================
 export const SKINS = [
-  { id: 'knight',   name: 'The Hollow Knight',   cost: 0,   defaultOwned: true,  color: '#ffa23a', blurb: 'Armoured wraith, an amber soul burning in its chest.', build: buildKnight },
-  { id: 'revenant', name: 'The Bone Revenant',   cost: 0,   defaultOwned: true,  color: '#ff2a2a', blurb: 'A skeleton wreathed in crimson soul-fire.',            build: buildRevenant },
-  { id: 'wretch',   name: 'The Ember Wretch',    cost: 0,   defaultOwned: true,  color: '#ff5a1e', blurb: 'Cracked and molten, seething with glowing lava.',      build: buildWretch },
-  { id: 'plague',   name: 'The Plague Warden',   cost: 450,  defaultOwned: false, color: '#6cff5a', blurb: 'Beaked and robed; a green rot trails its steps.',      build: buildPlague },
-  { id: 'seraph',   name: 'The Ashen Seraph',    cost: 1100, defaultOwned: false, color: '#ffe9a8', blurb: 'A broken halo and wings of ash. Fallen, still radiant.', build: buildSeraph },
-  { id: 'stalker',  name: 'The Void Stalker',    cost: 2000, defaultOwned: false, color: '#a855ff', blurb: 'A spiked shard of hungry dark, lit by a violet core.', build: buildStalker },
-  { id: 'lich',     name: 'The Frostbound Lich', cost: 3400, defaultOwned: false, color: '#59d6ff', blurb: 'Crowned in eternal frost, its soul a shard of ice.',    build: buildLich },
-  { id: 'reaper',   name: 'The Reaper',          cost: 1600, defaultOwned: false, color: '#66ff88', blurb: 'Hooded death itself, scythe in hand, soul cold and green.', build: buildReaper },
-  { id: 'banshee',  name: 'The Banshee',         cost: 2600, defaultOwned: false, color: '#8ff4ff', blurb: 'A translucent, keening spirit lit from within.',        build: buildBanshee },
-  { id: 'goliath',  name: 'The Goliath',         cost: 4800, defaultOwned: false, color: '#ff7a1e', blurb: 'A hulking stone golem seamed with molten light.',       build: buildGoliath },
-  { id: 'sovereign', name: 'The Gilded Sovereign', cost: 0, defaultOwned: false, lootboxOnly: true, mythic: true, color: '#ffd24a', blurb: 'MYTHIC. Radiant, crowned, winged in gold. Found only in the lootbox — a 1-in-100 fortune.', build: buildSovereign },
+  { id: 'knight',   name: 'The Hollow Knight',   cost: 0,   defaultOwned: true,  color: '#ffa23a', blurb: 'Armoured wraith, an amber soul burning in its chest.', build: buildKnight,
+    story: "Once the cathedral's sworn protector, the Hollow Knight kept its vigil long after the last prayer died. The body inside the plate rotted to nothing centuries ago — only the amber soul rattling in its breastplate still remembers why it runs." },
+  { id: 'revenant', name: 'The Bone Revenant',   cost: 0,   defaultOwned: true,  color: '#ff2a2a', blurb: 'A skeleton wreathed in crimson soul-fire.',            build: buildRevenant,
+    story: "Stripped of flesh by the corridor's hunger, the Bone Revenant refused to lie still. Its crimson soul-fire is pure spite — the raw will to keep moving when there is nothing left to move it." },
+  { id: 'wretch',   name: 'The Ember Wretch',    cost: 0,   defaultOwned: true,  color: '#ff5a1e', blurb: 'Cracked and molten, seething with glowing lava.',      build: buildWretch,
+    story: "Dragged half-formed from the foundry-pits, the Ember Wretch is a body of cooling slag that never quite set. Every stride cracks it open; every crack leaks the fire that keeps it walking." },
+  { id: 'plague',   name: 'The Plague Warden',   cost: 450,  defaultOwned: false, color: '#6cff5a', blurb: 'Beaked and robed; a green rot trails its steps.',      build: buildPlague,
+    story: "The Plague Warden walked the fever-wards until the wards walked back. Sealed forever inside its beaked mask, it trails a green rot the dead mistake for incense — and follows the living out of habit." },
+  { id: 'seraph',   name: 'The Ashen Seraph',    cost: 1100, defaultOwned: false, color: '#ffe9a8', blurb: 'A broken halo and wings of ash. Fallen, still radiant.', build: buildSeraph,
+    story: "The Ashen Seraph fell a very long way to reach this floor, and its wings burned to cinder on the descent. It still shines — not from grace, but from the heat of the fall that never cooled." },
+  { id: 'stalker',  name: 'The Void Stalker',    cost: 2000, defaultOwned: false, color: '#a855ff', blurb: 'A spiked shard of hungry dark, lit by a violet core.', build: buildStalker,
+    story: "The Void Stalker is a splinter of the dark between the stars, given legs and an appetite. Where it looks, colour drains; where it steps, the corridor forgets it was ever lit." },
+  { id: 'lich',     name: 'The Frostbound Lich', cost: 3400, defaultOwned: false, color: '#59d6ff', blurb: 'Crowned in eternal frost, its soul a shard of ice.',    build: buildLich,
+    story: "The Frostbound Lich froze its own heart to outlast death — and outlast it, it did. Every breath sheets the walls in ice, and its soul is the one blue shard it never allowed to melt." },
+  { id: 'reaper',   name: 'The Reaper',          cost: 1600, defaultOwned: false, color: '#66ff88', blurb: 'Hooded death itself, scythe in hand, soul cold and green.', build: buildReaper,
+    story: "The Reaper does not run to escape the corridor — it runs to keep pace with those who flee. Scythe in hand, it has all the time there is, and it spends that time chasing yours." },
+  { id: 'banshee',  name: 'The Banshee',         cost: 2600, defaultOwned: false, color: '#8ff4ff', blurb: 'A translucent, keening spirit lit from within.',        build: buildBanshee,
+    story: "The Banshee's scream shattered the abbey bells before it finally shattered her. Now translucent and keening, she pours down the corridor like grief that learned how to sprint." },
+  { id: 'goliath',  name: 'The Goliath',         cost: 4800, defaultOwned: false, color: '#ff7a1e', blurb: 'A hulking stone golem seamed with molten light.',       build: buildGoliath,
+    story: "Carved to guard a tomb that no longer exists, the Goliath simply kept moving when the mountain around it fell. Molten light bleeds through its seams like a furnace that forgot how to die." },
+  { id: 'sovereign', name: 'The Gilded Sovereign', cost: 0, defaultOwned: false, lootboxOnly: true, mythic: true, color: '#ffd24a', blurb: 'MYTHIC. Radiant, crowned, winged in gold. Found only in the gem lootbox — a 1-in-100 fortune.', build: buildSovereign,
+    story: "MYTHIC. Crowned before the first curse was ever spoken, the Gilded Sovereign ruled the descent and never once abdicated. To wear it is to wear the corridor's own vanity — radiant, winged, and utterly without mercy." },
+  { id: 'warlord',  name: 'The Orc Warlord',     cost: 0,   defaultOwned: false, lootboxOnly: true, keyOnly: true, mythic: true, color: '#ff6a2a', blurb: 'MYTHIC. Iron-shouldered, bare-legged, tusked for war. Won only from the key-locked War-Cache.', build: buildWarlord,
+    story: "MYTHIC. Chieftain of the war-camps that once besieged the cathedral, the Orc Warlord broke the gates — and then broke the silence that followed. Iron-shouldered for the wall and bare-legged for the charge, it runs the corridor like a raid that will never end. It answers only to a stolen key." },
 ];

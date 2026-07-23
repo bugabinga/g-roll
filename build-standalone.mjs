@@ -74,6 +74,7 @@ const body = `
       <button id="btn-begin" class="btn btn-primary">Begin the Descent</button>
       <button id="btn-altar" class="btn">Altar of Curses</button>
       <button id="btn-shop" class="btn">Wardrobe</button>
+      <button id="btn-codex" class="btn">Codex of Souls</button>
       <button id="btn-settings" class="btn">Settings</button>
     </div>
     <div class="menu-stats">
@@ -138,8 +139,27 @@ const body = `
       <button id="lootbox-open" class="btn btn-primary">Open — <span class="gem-ico">◆</span> 500</button>
       <div id="lootbox-result" class="lootbox-result"></div>
     </div>
+    <div class="lootbox keybox">
+      <div class="lootbox-title">🗝 The War-Cache</div>
+      <div class="lootbox-desc">Opened with a <b>War-Key</b> — a <b>1-in-10</b> pull for the MYTHIC Orc Warlord. Earn keys by beating your record. Keys: <b id="keybox-count">0</b></div>
+      <button id="keybox-open" class="btn btn-primary">Turn a Key 🗝</button>
+      <div id="keybox-result" class="lootbox-result"></div>
+    </div>
     <div id="shop-list" class="shop-list"></div>
     <div class="btn-row"><button id="shop-back" class="btn">Back</button></div>
+  </div>
+</div>
+
+<div id="screen-codex" class="screen">
+  <div class="panel">
+    <h2 class="subtitle">Codex of Souls</h2>
+    <p class="altar-preamble">
+      Every body you can wear was once someone — or something. Here are their
+      stories, and which of them your descent has bound so far.
+    </p>
+    <div id="codex-count" class="altar-bank"></div>
+    <div id="codex-list" class="codex-list"></div>
+    <div class="btn-row"><button id="codex-back" class="btn">Back</button></div>
   </div>
 </div>
 
@@ -156,6 +176,7 @@ const body = `
   <div class="panel center">
     <div class="died">YOU DIED</div>
     <div id="go-record" class="record">NEW GLORY RECORD</div>
+    <div id="go-key" class="go-key">🗝 A War-Key! Open the War-Cache in the Wardrobe.</div>
     <div id="go-motivate" class="motivate"></div>
     <div class="go-score" id="go-score">0</div>
     <div class="go-mult">glory <span id="go-mult">×1.00</span></div>

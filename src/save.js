@@ -13,6 +13,7 @@ const DEFAULT = {
   unlocked: [],     // curse ids permanently unlocked (paid for once)
   activeCurses: [], // curse ids toggled on for the next run (subset of unlocked)
   skins: [],        // character/skin ids bought in the Wardrobe (defaults are always owned)
+  keys: 0,          // war-keys — earned by beating your record, spent on the War-Cache
   mode: 'night',    // atmosphere: 'night' | 'day' | 'bloodmoon'
   ground: 'stone',  // floor skin: 'stone' | 'milkyway' | 'lava' | 'frost'
   muted: false,
@@ -70,6 +71,11 @@ export const Save = {
   grantSkin(id) {   // lootbox award — no cost
     if (!state.skins.includes(id)) { state.skins.push(id); persist(); }
   },
+
+  // --- War-keys --- earned by beating your record; spent to open the War-Cache.
+  get keys() { return state.keys || 0; },
+  earnKeys(n = 1) { state.keys = (state.keys || 0) + n; persist(); return state.keys; },
+  spendKey() { if ((state.keys || 0) < 1) return false; state.keys -= 1; persist(); return true; },
 
   // Pay once to unlock a curse forever. After that it's free to toggle on/off.
   unlockCurse(id, cost) {

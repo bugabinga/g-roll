@@ -242,6 +242,19 @@ body {
 .lootbox-result.mythic { color: #ffd24a; text-shadow: 0 0 22px rgba(255,210,74,0.8); animation: mythicPulse 0.8s ease infinite alternate; }
 @keyframes mythicPulse { from { transform: scale(1); } to { transform: scale(1.06); } }
 
+/* the key-locked War-Cache — a cold green-iron variant of the lootbox */
+.lootbox.keybox {
+  border-color: rgba(120,180,110,0.42);
+  background: linear-gradient(180deg, rgba(24,44,20,0.42), rgba(20,14,10,0.45));
+}
+.lootbox.keybox .lootbox-title { color: #bfe6a6; text-shadow: 0 0 16px rgba(120,200,110,0.4); }
+.lootbox.keybox .lootbox-desc b { color: #9ee6a0; }
+#keybox-count { color: #cdeeb4; }
+#keybox-open:disabled, .btn.cant { opacity: 0.45; cursor: not-allowed; filter: grayscale(0.4); }
+
+/* the War-Key line on the death screen */
+.go-key { display: none; color: #cdeeb4; font-family: 'Cinzel', serif; font-size: 13.5px; letter-spacing: 0.05em; margin-bottom: 8px; text-shadow: 0 0 16px rgba(120,200,110,0.5); animation: pulse 1.4s infinite; }
+
 /* ---------- wardrobe (skin shop) ---------- */
 .skin-stage { text-align: center; margin: 2px 0 14px; }
 .skin-preview {
@@ -274,6 +287,31 @@ body {
 .skin-buy:hover { border-color: var(--gold); box-shadow: 0 0 16px rgba(201,162,39,0.3); color: #fff; }
 .skin-buy.cant { color: var(--ash-dim); border-color: rgba(120,110,90,0.3); background: transparent; cursor: default; box-shadow: none; }
 .skin-owned-tag { font-family: 'Cinzel', serif; font-size: 12px; letter-spacing: 0.1em; color: var(--gold); text-transform: uppercase; }
+
+/* ---------- codex of souls ---------- */
+.codex-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+.codex-entry {
+  display: flex; align-items: flex-start; gap: 14px;
+  padding: 13px 15px; border: 1px solid rgba(120,110,90,0.24); border-radius: 3px;
+  background: rgba(16,14,12,0.62);
+}
+.codex-entry.mythic { border-color: rgba(201,162,39,0.42); background: linear-gradient(180deg, rgba(48,36,8,0.4), rgba(20,10,10,0.5)); }
+.codex-entry.locked { opacity: 0.62; }
+.codex-entry.locked .codex-orb { filter: grayscale(0.85) brightness(0.55); }
+.codex-orb {
+  width: 42px; height: 42px; border-radius: 50%; flex: 0 0 auto; margin-top: 2px;
+  background: radial-gradient(circle at 38% 34%, var(--c) 0%, rgba(0,0,0,0.2) 68%, #000 100%);
+  box-shadow: 0 0 16px 2px var(--c), inset 0 0 10px rgba(0,0,0,0.6);
+}
+.codex-body { flex: 1 1 auto; min-width: 0; }
+.codex-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.codex-name { font-family: 'Cinzel', serif; font-size: 16px; color: #ecdfca; }
+.codex-tag { font-family: 'Cinzel', serif; font-size: 11px; letter-spacing: 0.06em; color: #b6ad98; }
+.codex-tag.myth { color: #ffd24a; text-shadow: 0 0 12px rgba(255,210,74,0.6); }
+.codex-tag.free { color: var(--gold); text-transform: uppercase; }
+.codex-state { margin-left: auto; font-family: 'Cinzel', serif; font-size: 11px; letter-spacing: 0.08em; color: var(--ash-dim); text-transform: uppercase; }
+.codex-entry:not(.locked) .codex-state { color: var(--gold); }
+.codex-story { font-size: 13.5px; color: #a49e90; line-height: 1.42; margin-top: 5px; }
 
 /* ---------- wound choice ---------- */
 .choice-eyebrow { font-family: 'Cinzel', serif; letter-spacing: 0.26em; font-size: 12px; color: var(--gold); margin-bottom: 6px; }

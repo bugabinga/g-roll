@@ -47,6 +47,10 @@ export class UI {
     $('btn-shop').onclick = () => this.showShop();
     $('shop-back').onclick = () => this.showMenu();
     $('lootbox-open').onclick = () => this._openLootbox();
+    $('keybox-open').onclick = () => this._openKeyBox();
+
+    $('btn-codex').onclick = () => this.showCodex();
+    $('codex-back').onclick = () => this.showMenu();
 
     $('btn-settings').onclick = () => this.showSettings();
     $('settings-back').onclick = () => this.showMenu();
@@ -63,7 +67,7 @@ export class UI {
 
   // -- screen switching ------------------------------------------------------
   _hideAll() {
-    for (const s of ['menu', 'altar', 'gameover', 'choice', 'intro', 'shop', 'settings']) $('screen-' + s).classList.remove('show');
+    for (const s of ['menu', 'altar', 'gameover', 'choice', 'intro', 'shop', 'settings', 'codex']) $('screen-' + s).classList.remove('show');
     $('hud').classList.remove('show');
   }
 
@@ -150,6 +154,40 @@ export class UI {
 
   setPreview(preview) { this.preview = preview; }
 
+  // -- Codex: a bestiary of every body and its story ------------------------
+  showCodex() {
+    this._hideAll();
+    this._renderCodex();
+    $('screen-codex').classList.add('show');
+    this.h.onCodex && this.h.onCodex();
+  }
+
+  _renderCodex() {
+    const list = $('codex-list');
+    list.innerHTML = '';
+    let owned = 0;
+    for (const s of SKINS) {
+      const have = s.defaultOwned || Save.isSkinOwned(s.id);
+      if (have) owned++;
+      const el = document.createElement('div');
+      el.className = 'codex-entry' + (have ? '' : ' locked') + (s.mythic ? ' mythic' : '');
+      el.innerHTML = `
+        <div class="codex-orb" style="--c:${s.color}"></div>
+        <div class="codex-body">
+          <div class="codex-head">
+            <span class="codex-name">${s.name}</span>
+            ${s.mythic ? '<span class="codex-tag myth">✦ mythic</span>'
+              : s.defaultOwned ? '<span class="codex-tag free">free</span>'
+              : '<span class="codex-tag">' + gem + ' ' + s.cost + '</span>'}
+            <span class="codex-state">${have ? '✦ owned' : 'undiscovered'}</span>
+          </div>
+          <p class="codex-story">${s.story || s.blurb}</p>
+        </div>`;
+      list.appendChild(el);
+    }
+    $('codex-count').textContent = `${owned} / ${SKINS.length} souls bound`;
+  }
+
   showShop() {
     this._hideAll();
     if (this.selectedSkin == null) this.selectedSkin = 0;
@@ -157,6 +195,14 @@ export class UI {
     this._selectSkin(this.selectedSkin);
     $('screen-shop').classList.add('show');
     this.h.onShop && this.h.onShop();
+  }
+
+  _updateKeys() {
+    const n = Save.keys;
+    const btn = $('keybox-open');
+    $('keybox-count').textContent = n;
+    btn.disabled = n < 1;
+    btn.classList.toggle('cant', n < 1);
   }
 
   _selectSkin(idx) {
@@ -198,6 +244,7 @@ export class UI {
       list.appendChild(el);
     });
     $('shop-bank').innerHTML = `Bank: ${gem} ${Save.bank}`;
+    this._updateKeys();
   }
 
   _openLootbox() {
@@ -226,6 +273,37 @@ export class UI {
     this._playChest(tone, () => {
       this._renderShop();
       this._selectSkin(idx);                  // spin the winning body up in the turntable
+      this.refreshBank();
+      res.textContent = msg;
+      res.className = 'lootbox-result show ' + tone;
+    });
+  }
+
+  // The War-Cache: opened with a War-Key. 1-in-10 pull for the MYTHIC Orc Warlord.
+  _openKeyBox() {
+    const res = $('keybox-result');
+    if (this._chestOpening) return;
+    if (!Save.spendKey()) {
+      res.textContent = 'No War-Keys. Beat your record to earn them.';
+      res.className = 'lootbox-result show dupe';
+      return;
+    }
+    let msg, tone;
+    if (Math.random() < 0.1) {                                        // 1-in-10 orc
+      if (Save.isSkinOwned('warlord')) { Save.addGems(800); msg = 'The Warlord roars again — +◆800'; tone = 'dupe'; }
+      else { Save.grantSkin('warlord'); msg = '✦ THE ORC WARLORD IS YOURS! ✦'; tone = 'mythic'; }
+    } else {
+      const g = 120 + ((Math.random() * 90) | 0);
+      Save.addGems(g);
+      msg = `The cache holds only plunder — ${gem} +${g}.`;
+      tone = 'dupe';
+    }
+    const idx = SKINS.findIndex((s) => s.id === 'warlord');
+
+    this._playChest(tone, () => {
+      this._renderShop();
+      if (Save.isSkinOwned('warlord')) this._selectSkin(idx);
+      this._updateKeys();
       this.refreshBank();
       res.textContent = msg;
       res.className = 'lootbox-result show ' + tone;
@@ -385,6 +463,8 @@ export class UI {
     $('go-bank').innerHTML = `Bank now ${gem} ${Save.bank}`;
     $('go-mult').textContent = '×' + data.mult.toFixed(2);
     $('go-record').style.display = data.newBest ? 'block' : 'none';
+    const keyEl = $('go-key');
+    if (keyEl) keyEl.style.display = data.keyEarned ? 'block' : 'none';
     const mot = $('go-motivate');
     if (data.newBest) {
       mot.textContent = MOTIVATIONS[(Math.random() * MOTIVATIONS.length) | 0];

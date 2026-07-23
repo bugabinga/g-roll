@@ -250,6 +250,19 @@ body {
 .lootbox-result.mythic { color: #ffd24a; text-shadow: 0 0 22px rgba(255,210,74,0.8); animation: mythicPulse 0.8s ease infinite alternate; }
 @keyframes mythicPulse { from { transform: scale(1); } to { transform: scale(1.06); } }
 
+/* the key-locked War-Cache — a cold green-iron variant of the lootbox */
+.lootbox.keybox {
+  border-color: rgba(120,180,110,0.42);
+  background: linear-gradient(180deg, rgba(24,44,20,0.42), rgba(20,14,10,0.45));
+}
+.lootbox.keybox .lootbox-title { color: #bfe6a6; text-shadow: 0 0 16px rgba(120,200,110,0.4); }
+.lootbox.keybox .lootbox-desc b { color: #9ee6a0; }
+#keybox-count { color: #cdeeb4; }
+#keybox-open:disabled, .btn.cant { opacity: 0.45; cursor: not-allowed; filter: grayscale(0.4); }
+
+/* the War-Key line on the death screen */
+.go-key { display: none; color: #cdeeb4; font-family: 'Cinzel', serif; font-size: 13.5px; letter-spacing: 0.05em; margin-bottom: 8px; text-shadow: 0 0 16px rgba(120,200,110,0.5); animation: pulse 1.4s infinite; }
+
 /* ---------- wardrobe (skin shop) ---------- */
 .skin-stage { text-align: center; margin: 2px 0 14px; }
 .skin-preview {
@@ -282,6 +295,31 @@ body {
 .skin-buy:hover { border-color: var(--gold); box-shadow: 0 0 16px rgba(201,162,39,0.3); color: #fff; }
 .skin-buy.cant { color: var(--ash-dim); border-color: rgba(120,110,90,0.3); background: transparent; cursor: default; box-shadow: none; }
 .skin-owned-tag { font-family: 'Cinzel', serif; font-size: 12px; letter-spacing: 0.1em; color: var(--gold); text-transform: uppercase; }
+
+/* ---------- codex of souls ---------- */
+.codex-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+.codex-entry {
+  display: flex; align-items: flex-start; gap: 14px;
+  padding: 13px 15px; border: 1px solid rgba(120,110,90,0.24); border-radius: 3px;
+  background: rgba(16,14,12,0.62);
+}
+.codex-entry.mythic { border-color: rgba(201,162,39,0.42); background: linear-gradient(180deg, rgba(48,36,8,0.4), rgba(20,10,10,0.5)); }
+.codex-entry.locked { opacity: 0.62; }
+.codex-entry.locked .codex-orb { filter: grayscale(0.85) brightness(0.55); }
+.codex-orb {
+  width: 42px; height: 42px; border-radius: 50%; flex: 0 0 auto; margin-top: 2px;
+  background: radial-gradient(circle at 38% 34%, var(--c) 0%, rgba(0,0,0,0.2) 68%, #000 100%);
+  box-shadow: 0 0 16px 2px var(--c), inset 0 0 10px rgba(0,0,0,0.6);
+}
+.codex-body { flex: 1 1 auto; min-width: 0; }
+.codex-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.codex-name { font-family: 'Cinzel', serif; font-size: 16px; color: #ecdfca; }
+.codex-tag { font-family: 'Cinzel', serif; font-size: 11px; letter-spacing: 0.06em; color: #b6ad98; }
+.codex-tag.myth { color: #ffd24a; text-shadow: 0 0 12px rgba(255,210,74,0.6); }
+.codex-tag.free { color: var(--gold); text-transform: uppercase; }
+.codex-state { margin-left: auto; font-family: 'Cinzel', serif; font-size: 11px; letter-spacing: 0.08em; color: var(--ash-dim); text-transform: uppercase; }
+.codex-entry:not(.locked) .codex-state { color: var(--gold); }
+.codex-story { font-size: 13.5px; color: #a49e90; line-height: 1.42; margin-top: 5px; }
 
 /* ---------- wound choice ---------- */
 .choice-eyebrow { font-family: 'Cinzel', serif; letter-spacing: 0.26em; font-size: 12px; color: var(--gold); margin-bottom: 6px; }
@@ -450,6 +488,7 @@ body {
       <button id="btn-begin" class="btn btn-primary">Begin the Descent</button>
       <button id="btn-altar" class="btn">Altar of Curses</button>
       <button id="btn-shop" class="btn">Wardrobe</button>
+      <button id="btn-codex" class="btn">Codex of Souls</button>
       <button id="btn-settings" class="btn">Settings</button>
     </div>
     <div class="menu-stats">
@@ -514,8 +553,27 @@ body {
       <button id="lootbox-open" class="btn btn-primary">Open — <span class="gem-ico">◆</span> 500</button>
       <div id="lootbox-result" class="lootbox-result"></div>
     </div>
+    <div class="lootbox keybox">
+      <div class="lootbox-title">🗝 The War-Cache</div>
+      <div class="lootbox-desc">Opened with a <b>War-Key</b> — a <b>1-in-10</b> pull for the MYTHIC Orc Warlord. Earn keys by beating your record. Keys: <b id="keybox-count">0</b></div>
+      <button id="keybox-open" class="btn btn-primary">Turn a Key 🗝</button>
+      <div id="keybox-result" class="lootbox-result"></div>
+    </div>
     <div id="shop-list" class="shop-list"></div>
     <div class="btn-row"><button id="shop-back" class="btn">Back</button></div>
+  </div>
+</div>
+
+<div id="screen-codex" class="screen">
+  <div class="panel">
+    <h2 class="subtitle">Codex of Souls</h2>
+    <p class="altar-preamble">
+      Every body you can wear was once someone — or something. Here are their
+      stories, and which of them your descent has bound so far.
+    </p>
+    <div id="codex-count" class="altar-bank"></div>
+    <div id="codex-list" class="codex-list"></div>
+    <div class="btn-row"><button id="codex-back" class="btn">Back</button></div>
   </div>
 </div>
 
@@ -532,6 +590,7 @@ body {
   <div class="panel center">
     <div class="died">YOU DIED</div>
     <div id="go-record" class="record">NEW GLORY RECORD</div>
+    <div id="go-key" class="go-key">🗝 A War-Key! Open the War-Cache in the Wardrobe.</div>
     <div id="go-motivate" class="motivate"></div>
     <div class="go-score" id="go-score">0</div>
     <div class="go-mult">glory <span id="go-mult">×1.00</span></div>
@@ -53815,6 +53874,7 @@ const DEFAULT = {
   unlocked: [],     // curse ids permanently unlocked (paid for once)
   activeCurses: [], // curse ids toggled on for the next run (subset of unlocked)
   skins: [],        // character/skin ids bought in the Wardrobe (defaults are always owned)
+  keys: 0,          // war-keys — earned by beating your record, spent on the War-Cache
   mode: 'night',    // atmosphere: 'night' | 'day' | 'bloodmoon'
   ground: 'stone',  // floor skin: 'stone' | 'milkyway' | 'lava' | 'frost'
   muted: false,
@@ -53872,6 +53932,11 @@ const Save = {
   grantSkin(id) {   // lootbox award — no cost
     if (!state.skins.includes(id)) { state.skins.push(id); persist(); }
   },
+
+  // --- War-keys --- earned by beating your record; spent to open the War-Cache.
+  get keys() { return state.keys || 0; },
+  earnKeys(n = 1) { state.keys = (state.keys || 0) + n; persist(); return state.keys; },
+  spendKey() { if ((state.keys || 0) < 1) return false; state.keys -= 1; persist(); return true; },
 
   // Pay once to unlock a curse forever. After that it's free to toggle on/off.
   unlockCurse(id, cost) {
@@ -54863,6 +54928,18 @@ function addEyes(g, mat, y, z, r = 0.035, spread = 0.07) {
 // a hood shell over the head
 function hoodMesh(g, mat, y = 1.66) { const h = new THREE.Mesh(new THREE.SphereGeometry(0.25, 12, 9, 0, Math.PI * 2, 0, Math.PI * 0.72), mat); h.position.y = y; h.rotation.x = -0.1; g.add(h); return h; }
 
+// Plate LEG ARMOUR (greaves): armoured cuisse, knee cop, greave and sabaton
+// clamped onto the humanBase leg pivots so they swing with the run. Fixes the
+// "armoured torso, bare legs" look on the plate skins.
+function greaves(legL, legR, plate, trim = plate) {
+  for (const leg of [legL, legR]) {
+    const cuisse = new THREE.Mesh(new THREE.CylinderGeometry(0.155, 0.135, 0.34, 8), plate); cuisse.position.y = -0.24; leg.add(cuisse);
+    const knee = new THREE.Mesh(new THREE.SphereGeometry(0.135, 8, 7), trim); knee.position.y = -0.4; leg.add(knee);
+    const greave = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.105, 0.32, 8), plate); greave.position.y = -0.55; leg.add(greave);
+    const sabaton = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.13, 0.34), trim); sabaton.position.set(0, -0.74, 0.05); leg.add(sabaton);
+  }
+}
+
 // (1) The Hollow Knight — armoured wraith, amber soul, tattered cape.
 function buildKnight() {
   const armor = new THREE.MeshStandardMaterial({ color: 0x1b1b24, roughness: 0.5, metalness: 0.55 });
@@ -54870,6 +54947,7 @@ function buildKnight() {
   const cloth = new THREE.MeshStandardMaterial({ color: 0x3a0d0d, roughness: 1.0 });
   const glow  = new THREE.MeshBasicMaterial({ color: 0xffb340 });
   const base = humanBase(armor, armor); const g = base.group;
+  greaves(base.legL, base.legR, armor, trim);   // full-plate legs to match the cuirass
 
   const { core, halo } = coreOrb(g, 0xffe08a, 0xff7a1e, 0, 1.36, 0.26, 0.12);
   for (const sx of [-1, 1]) {
@@ -55076,6 +55154,7 @@ function buildSovereign() {
   const goldLit = new THREE.MeshStandardMaterial({ color: 0xe8c65a, emissive: 0xffcf4a, emissiveIntensity: 0.5, roughness: 0.2, metalness: 1 });
   const glow = new THREE.MeshBasicMaterial({ color: 0xfff2b0 });
   const base = humanBase(gold, goldLit); const g = base.group;
+  greaves(base.legL, base.legR, gold, goldLit);   // gilded greaves to match the cuirass
 
   const { core, halo } = coreOrb(g, 0xfff6cc, 0xffd24a, 0, 1.36, 0.28, 0.15);
   // pauldrons + radiant wings
@@ -55092,23 +55171,69 @@ function buildSovereign() {
   return { group: g, legL: base.legL, legR: base.legR, armL: base.armL, armR: base.armR, head, core, halo, cape: null, soulColor: 0xffd24a };
 }
 
+// (12) The Orc Warlord — MYTHIC. Iron-shouldered, bare-legged for the charge.
+//      Won only from the key-locked War-Cache (a 1-in-10 pull).
+function buildWarlord() {
+  const iron    = new THREE.MeshStandardMaterial({ color: 0x33302b, roughness: 0.5, metalness: 0.62 });
+  const skin    = new THREE.MeshStandardMaterial({ color: 0x51702f, roughness: 0.92 });   // orc green — bare arms & legs
+  const leather = new THREE.MeshStandardMaterial({ color: 0x281a10, roughness: 1 });
+  const tuskMat = new THREE.MeshStandardMaterial({ color: 0xe4dcc0, roughness: 0.55 });
+  const rage    = new THREE.MeshBasicMaterial({ color: 0xff6a2a });
+  // body = iron cuirass, limbs = green skin → an armoured torso over bare muscle
+  const base = humanBase(iron, skin, { bulk: 1.32 }); const g = base.group;
+
+  const { core, halo } = coreOrb(g, 0xffb47a, 0xff6a2a, 0, 1.36, 0.24, 0.1);
+
+  // huge spiked pauldrons
+  for (const sx of [-1, 1]) {
+    const pa = new THREE.Mesh(new THREE.SphereGeometry(0.23, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.62), iron); pa.position.set(sx * 0.42, 1.5, 0); g.add(pa);
+    const spk = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.24, 5), iron); spk.position.set(sx * 0.46, 1.66, 0); spk.rotation.z = sx * -0.32; g.add(spk);
+  }
+  // leather war-kilt over the hips — NO leg armour below it (bare orc legs)
+  const kilt = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.38, 0.42, 10, 1, true), leather); kilt.position.y = 0.8; g.add(kilt);
+
+  // brutish head: heavy brow, under-bite jaw, two upward tusks
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 10), skin); head.position.y = 1.72; head.scale.set(1.06, 1, 1); g.add(head);
+  const brow = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.09, 0.12), skin); brow.position.set(0, 1.77, 0.17); g.add(brow);
+  const jaw = new THREE.Mesh(new THREE.SphereGeometry(0.18, 10, 8), skin); jaw.position.set(0, 1.62, 0.06); jaw.scale.set(1.06, 0.64, 1); g.add(jaw);
+  for (const sx of [-1, 1]) { const t = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.22, 5), tuskMat); t.position.set(sx * 0.1, 1.66, 0.2); t.rotation.x = 0.35; g.add(t); }
+  addEyes(g, rage, 1.73, 0.18, 0.036, 0.09);
+  // bristling black mohawk
+  for (let i = -2; i <= 2; i++) { const h = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.28 - Math.abs(i) * 0.03, 4), leather); h.position.set(0, 1.93, -i * 0.06); h.rotation.x = -i * 0.22; g.add(h); }
+
+  return { group: g, legL: base.legL, legR: base.legR, armL: base.armL, armR: base.armR, head, core, halo, cape: null, soulColor: 0xff6a2a };
+}
+
 // ============================================================================
 //  Skin registry. The first three are free (owned by default); the rest are
 //  bought in the Wardrobe with gems. Every run rolls one at random, equal odds,
 //  from the set you own. All are cosmetic — identical hitbox and physics.
 // ============================================================================
 const SKINS = [
-  { id: 'knight',   name: 'The Hollow Knight',   cost: 0,   defaultOwned: true,  color: '#ffa23a', blurb: 'Armoured wraith, an amber soul burning in its chest.', build: buildKnight },
-  { id: 'revenant', name: 'The Bone Revenant',   cost: 0,   defaultOwned: true,  color: '#ff2a2a', blurb: 'A skeleton wreathed in crimson soul-fire.',            build: buildRevenant },
-  { id: 'wretch',   name: 'The Ember Wretch',    cost: 0,   defaultOwned: true,  color: '#ff5a1e', blurb: 'Cracked and molten, seething with glowing lava.',      build: buildWretch },
-  { id: 'plague',   name: 'The Plague Warden',   cost: 450,  defaultOwned: false, color: '#6cff5a', blurb: 'Beaked and robed; a green rot trails its steps.',      build: buildPlague },
-  { id: 'seraph',   name: 'The Ashen Seraph',    cost: 1100, defaultOwned: false, color: '#ffe9a8', blurb: 'A broken halo and wings of ash. Fallen, still radiant.', build: buildSeraph },
-  { id: 'stalker',  name: 'The Void Stalker',    cost: 2000, defaultOwned: false, color: '#a855ff', blurb: 'A spiked shard of hungry dark, lit by a violet core.', build: buildStalker },
-  { id: 'lich',     name: 'The Frostbound Lich', cost: 3400, defaultOwned: false, color: '#59d6ff', blurb: 'Crowned in eternal frost, its soul a shard of ice.',    build: buildLich },
-  { id: 'reaper',   name: 'The Reaper',          cost: 1600, defaultOwned: false, color: '#66ff88', blurb: 'Hooded death itself, scythe in hand, soul cold and green.', build: buildReaper },
-  { id: 'banshee',  name: 'The Banshee',         cost: 2600, defaultOwned: false, color: '#8ff4ff', blurb: 'A translucent, keening spirit lit from within.',        build: buildBanshee },
-  { id: 'goliath',  name: 'The Goliath',         cost: 4800, defaultOwned: false, color: '#ff7a1e', blurb: 'A hulking stone golem seamed with molten light.',       build: buildGoliath },
-  { id: 'sovereign', name: 'The Gilded Sovereign', cost: 0, defaultOwned: false, lootboxOnly: true, mythic: true, color: '#ffd24a', blurb: 'MYTHIC. Radiant, crowned, winged in gold. Found only in the lootbox — a 1-in-100 fortune.', build: buildSovereign },
+  { id: 'knight',   name: 'The Hollow Knight',   cost: 0,   defaultOwned: true,  color: '#ffa23a', blurb: 'Armoured wraith, an amber soul burning in its chest.', build: buildKnight,
+    story: "Once the cathedral's sworn protector, the Hollow Knight kept its vigil long after the last prayer died. The body inside the plate rotted to nothing centuries ago — only the amber soul rattling in its breastplate still remembers why it runs." },
+  { id: 'revenant', name: 'The Bone Revenant',   cost: 0,   defaultOwned: true,  color: '#ff2a2a', blurb: 'A skeleton wreathed in crimson soul-fire.',            build: buildRevenant,
+    story: "Stripped of flesh by the corridor's hunger, the Bone Revenant refused to lie still. Its crimson soul-fire is pure spite — the raw will to keep moving when there is nothing left to move it." },
+  { id: 'wretch',   name: 'The Ember Wretch',    cost: 0,   defaultOwned: true,  color: '#ff5a1e', blurb: 'Cracked and molten, seething with glowing lava.',      build: buildWretch,
+    story: "Dragged half-formed from the foundry-pits, the Ember Wretch is a body of cooling slag that never quite set. Every stride cracks it open; every crack leaks the fire that keeps it walking." },
+  { id: 'plague',   name: 'The Plague Warden',   cost: 450,  defaultOwned: false, color: '#6cff5a', blurb: 'Beaked and robed; a green rot trails its steps.',      build: buildPlague,
+    story: "The Plague Warden walked the fever-wards until the wards walked back. Sealed forever inside its beaked mask, it trails a green rot the dead mistake for incense — and follows the living out of habit." },
+  { id: 'seraph',   name: 'The Ashen Seraph',    cost: 1100, defaultOwned: false, color: '#ffe9a8', blurb: 'A broken halo and wings of ash. Fallen, still radiant.', build: buildSeraph,
+    story: "The Ashen Seraph fell a very long way to reach this floor, and its wings burned to cinder on the descent. It still shines — not from grace, but from the heat of the fall that never cooled." },
+  { id: 'stalker',  name: 'The Void Stalker',    cost: 2000, defaultOwned: false, color: '#a855ff', blurb: 'A spiked shard of hungry dark, lit by a violet core.', build: buildStalker,
+    story: "The Void Stalker is a splinter of the dark between the stars, given legs and an appetite. Where it looks, colour drains; where it steps, the corridor forgets it was ever lit." },
+  { id: 'lich',     name: 'The Frostbound Lich', cost: 3400, defaultOwned: false, color: '#59d6ff', blurb: 'Crowned in eternal frost, its soul a shard of ice.',    build: buildLich,
+    story: "The Frostbound Lich froze its own heart to outlast death — and outlast it, it did. Every breath sheets the walls in ice, and its soul is the one blue shard it never allowed to melt." },
+  { id: 'reaper',   name: 'The Reaper',          cost: 1600, defaultOwned: false, color: '#66ff88', blurb: 'Hooded death itself, scythe in hand, soul cold and green.', build: buildReaper,
+    story: "The Reaper does not run to escape the corridor — it runs to keep pace with those who flee. Scythe in hand, it has all the time there is, and it spends that time chasing yours." },
+  { id: 'banshee',  name: 'The Banshee',         cost: 2600, defaultOwned: false, color: '#8ff4ff', blurb: 'A translucent, keening spirit lit from within.',        build: buildBanshee,
+    story: "The Banshee's scream shattered the abbey bells before it finally shattered her. Now translucent and keening, she pours down the corridor like grief that learned how to sprint." },
+  { id: 'goliath',  name: 'The Goliath',         cost: 4800, defaultOwned: false, color: '#ff7a1e', blurb: 'A hulking stone golem seamed with molten light.',       build: buildGoliath,
+    story: "Carved to guard a tomb that no longer exists, the Goliath simply kept moving when the mountain around it fell. Molten light bleeds through its seams like a furnace that forgot how to die." },
+  { id: 'sovereign', name: 'The Gilded Sovereign', cost: 0, defaultOwned: false, lootboxOnly: true, mythic: true, color: '#ffd24a', blurb: 'MYTHIC. Radiant, crowned, winged in gold. Found only in the gem lootbox — a 1-in-100 fortune.', build: buildSovereign,
+    story: "MYTHIC. Crowned before the first curse was ever spoken, the Gilded Sovereign ruled the descent and never once abdicated. To wear it is to wear the corridor's own vanity — radiant, winged, and utterly without mercy." },
+  { id: 'warlord',  name: 'The Orc Warlord',     cost: 0,   defaultOwned: false, lootboxOnly: true, keyOnly: true, mythic: true, color: '#ff6a2a', blurb: 'MYTHIC. Iron-shouldered, bare-legged, tusked for war. Won only from the key-locked War-Cache.', build: buildWarlord,
+    story: "MYTHIC. Chieftain of the war-camps that once besieged the cathedral, the Orc Warlord broke the gates — and then broke the silence that followed. Iron-shouldered for the wall and bare-legged for the charge, it runs the corridor like a raid that will never end. It answers only to a stolen key." },
 ];
 
 
@@ -56280,6 +56405,10 @@ class UI {
     $('btn-shop').onclick = () => this.showShop();
     $('shop-back').onclick = () => this.showMenu();
     $('lootbox-open').onclick = () => this._openLootbox();
+    $('keybox-open').onclick = () => this._openKeyBox();
+
+    $('btn-codex').onclick = () => this.showCodex();
+    $('codex-back').onclick = () => this.showMenu();
 
     $('btn-settings').onclick = () => this.showSettings();
     $('settings-back').onclick = () => this.showMenu();
@@ -56296,7 +56425,7 @@ class UI {
 
   // -- screen switching ------------------------------------------------------
   _hideAll() {
-    for (const s of ['menu', 'altar', 'gameover', 'choice', 'intro', 'shop', 'settings']) $('screen-' + s).classList.remove('show');
+    for (const s of ['menu', 'altar', 'gameover', 'choice', 'intro', 'shop', 'settings', 'codex']) $('screen-' + s).classList.remove('show');
     $('hud').classList.remove('show');
   }
 
@@ -56383,6 +56512,40 @@ class UI {
 
   setPreview(preview) { this.preview = preview; }
 
+  // -- Codex: a bestiary of every body and its story ------------------------
+  showCodex() {
+    this._hideAll();
+    this._renderCodex();
+    $('screen-codex').classList.add('show');
+    this.h.onCodex && this.h.onCodex();
+  }
+
+  _renderCodex() {
+    const list = $('codex-list');
+    list.innerHTML = '';
+    let owned = 0;
+    for (const s of SKINS) {
+      const have = s.defaultOwned || Save.isSkinOwned(s.id);
+      if (have) owned++;
+      const el = document.createElement('div');
+      el.className = 'codex-entry' + (have ? '' : ' locked') + (s.mythic ? ' mythic' : '');
+      el.innerHTML = `
+        <div class="codex-orb" style="--c:${s.color}"></div>
+        <div class="codex-body">
+          <div class="codex-head">
+            <span class="codex-name">${s.name}</span>
+            ${s.mythic ? '<span class="codex-tag myth">✦ mythic</span>'
+              : s.defaultOwned ? '<span class="codex-tag free">free</span>'
+              : '<span class="codex-tag">' + gem + ' ' + s.cost + '</span>'}
+            <span class="codex-state">${have ? '✦ owned' : 'undiscovered'}</span>
+          </div>
+          <p class="codex-story">${s.story || s.blurb}</p>
+        </div>`;
+      list.appendChild(el);
+    }
+    $('codex-count').textContent = `${owned} / ${SKINS.length} souls bound`;
+  }
+
   showShop() {
     this._hideAll();
     if (this.selectedSkin == null) this.selectedSkin = 0;
@@ -56390,6 +56553,14 @@ class UI {
     this._selectSkin(this.selectedSkin);
     $('screen-shop').classList.add('show');
     this.h.onShop && this.h.onShop();
+  }
+
+  _updateKeys() {
+    const n = Save.keys;
+    const btn = $('keybox-open');
+    $('keybox-count').textContent = n;
+    btn.disabled = n < 1;
+    btn.classList.toggle('cant', n < 1);
   }
 
   _selectSkin(idx) {
@@ -56431,6 +56602,7 @@ class UI {
       list.appendChild(el);
     });
     $('shop-bank').innerHTML = `Bank: ${gem} ${Save.bank}`;
+    this._updateKeys();
   }
 
   _openLootbox() {
@@ -56459,6 +56631,37 @@ class UI {
     this._playChest(tone, () => {
       this._renderShop();
       this._selectSkin(idx);                  // spin the winning body up in the turntable
+      this.refreshBank();
+      res.textContent = msg;
+      res.className = 'lootbox-result show ' + tone;
+    });
+  }
+
+  // The War-Cache: opened with a War-Key. 1-in-10 pull for the MYTHIC Orc Warlord.
+  _openKeyBox() {
+    const res = $('keybox-result');
+    if (this._chestOpening) return;
+    if (!Save.spendKey()) {
+      res.textContent = 'No War-Keys. Beat your record to earn them.';
+      res.className = 'lootbox-result show dupe';
+      return;
+    }
+    let msg, tone;
+    if (Math.random() < 0.1) {                                        // 1-in-10 orc
+      if (Save.isSkinOwned('warlord')) { Save.addGems(800); msg = 'The Warlord roars again — +◆800'; tone = 'dupe'; }
+      else { Save.grantSkin('warlord'); msg = '✦ THE ORC WARLORD IS YOURS! ✦'; tone = 'mythic'; }
+    } else {
+      const g = 120 + ((Math.random() * 90) | 0);
+      Save.addGems(g);
+      msg = `The cache holds only plunder — ${gem} +${g}.`;
+      tone = 'dupe';
+    }
+    const idx = SKINS.findIndex((s) => s.id === 'warlord');
+
+    this._playChest(tone, () => {
+      this._renderShop();
+      if (Save.isSkinOwned('warlord')) this._selectSkin(idx);
+      this._updateKeys();
       this.refreshBank();
       res.textContent = msg;
       res.className = 'lootbox-result show ' + tone;
@@ -56618,6 +56821,8 @@ class UI {
     $('go-bank').innerHTML = `Bank now ${gem} ${Save.bank}`;
     $('go-mult').textContent = '×' + data.mult.toFixed(2);
     $('go-record').style.display = data.newBest ? 'block' : 'none';
+    const keyEl = $('go-key');
+    if (keyEl) keyEl.style.display = data.keyEarned ? 'block' : 'none';
     const mot = $('go-motivate');
     if (data.newBest) {
       mot.textContent = MOTIVATIONS[(Math.random() * MOTIVATIONS.length) | 0];
@@ -56674,6 +56879,7 @@ class Game {
       onBegin: () => this.beginRun(),
       onAltar: () => { this.state = 'altar'; },
       onShop: () => { this.state = 'shop'; },
+      onCodex: () => { this.state = 'codex'; },
       onSettings: () => { this.state = 'settings'; },
       onGround: (t) => { this.world.setGround(t); },   // live preview in settings
       onMenu: () => { this.state = 'menu'; },
@@ -56876,12 +57082,15 @@ class Game {
     if (flash) flash.classList.remove('show');
     Save.addGems(r.gems);
     const { newBest } = Save.recordRun(Math.floor(r.score), r.distance);
-    if (newBest && r.score > 0) this.audio.toll();
+    const record = newBest && r.score > 0;
+    // Beating your record randomly yields a War-Key for the key-locked War-Cache.
+    let keyEarned = false;
+    if (record) { this.audio.toll(); if (Math.random() < 0.5) { Save.earnKeys(1); keyEarned = true; } }
     this.player.hide();
     this.state = 'dead';
     this.ui.showGameOver({
       score: r.score, distance: r.distance, gemsCollected: r.gems,
-      mult: r.mult, newBest: newBest && r.score > 0,
+      mult: r.mult, newBest: record, keyEarned,
     });
   }
 

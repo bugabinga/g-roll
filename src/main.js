@@ -42,6 +42,7 @@ class Game {
       onBegin: () => this.beginRun(),
       onAltar: () => { this.state = 'altar'; },
       onShop: () => { this.state = 'shop'; },
+      onCodex: () => { this.state = 'codex'; },
       onSettings: () => { this.state = 'settings'; },
       onGround: (t) => { this.world.setGround(t); },   // live preview in settings
       onMenu: () => { this.state = 'menu'; },
@@ -244,12 +245,15 @@ class Game {
     if (flash) flash.classList.remove('show');
     Save.addGems(r.gems);
     const { newBest } = Save.recordRun(Math.floor(r.score), r.distance);
-    if (newBest && r.score > 0) this.audio.toll();
+    const record = newBest && r.score > 0;
+    // Beating your record randomly yields a War-Key for the key-locked War-Cache.
+    let keyEarned = false;
+    if (record) { this.audio.toll(); if (Math.random() < 0.5) { Save.earnKeys(1); keyEarned = true; } }
     this.player.hide();
     this.state = 'dead';
     this.ui.showGameOver({
       score: r.score, distance: r.distance, gemsCollected: r.gems,
-      mult: r.mult, newBest: newBest && r.score > 0,
+      mult: r.mult, newBest: record, keyEarned,
     });
   }
 
